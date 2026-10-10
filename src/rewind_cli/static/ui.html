@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rewind</title>
+<style>
+:root {
+  --bg: #0d0e10; --panel: #131417; --panel-2: #181a1e; --hover: #1d1f24; --sel: #23262d;
+  --border: #24262b; --border-2: #2e3138; --text: #e7e8ea; --muted: #8b9099; --faint: #5d626b;
+  --accent: #8b9cff; --accent-bg: rgba(139,156,255,.12);
+  --green: #4fc88f; --green-bg: rgba(79,200,143,.11); --green-strong: rgba(79,200,143,.22);
+  --red: #f0646a; --red-bg: rgba(240,100,106,.11); --red-strong: rgba(240,100,106,.24);
+  --yellow: #e2b85c; --yellow-bg: rgba(226,184,92,.12); --cyan: #5cc5d6; --magenta: #c792ea;
+  --tok-str: #a5d6a7; --tok-kw: #c3a6ff; --tok-num: #f2b880; --tok-com: #6b717c; --tok-fn: #82b1ff;
+  --shadow: 0 10px 40px rgba(0,0,0,.45);
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+:root[data-theme="light"] {
+  --bg: #f7f7f8; --panel: #ffffff; --panel-2: #fafafb; --hover: #f2f3f5; --sel: #eceef2;
+  --border: #e6e7ea; --border-2: #dcdee2; --text: #1c1d21; --muted: #696e78; --faint: #9a9fa8;
+  --accent: #4f5bd5; --accent-bg: rgba(79,91,213,.09);
+  --green: #1a8a55; --green-bg: rgba(26,138,85,.08); --green-strong: rgba(26,138,85,.18);
+  --red: #c9363d; --red-bg: rgba(201,54,61,.07); --red-strong: rgba(201,54,61,.17);
+  --yellow: #a26b00; --yellow-bg: rgba(162,107,0,.09); --cyan: #0e7f91; --magenta: #8e44ad;
+  --tok-str: #2e7d32; --tok-kw: #6f42c1; --tok-num: #b35900; --tok-com: #9aa0a6; --tok-fn: #1f5fbf;
+  --shadow: 0 10px 40px rgba(20,20,40,.14);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 13px/1.45 var(--sans); -webkit-font-smoothing: antialiased; overflow: hidden; }
+button { font: inherit; color: inherit; }
+.app { display: grid; grid-template-columns: 340px 290px 1fr; grid-template-rows: 48px 1fr; height: 100vh; }
+header { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: -.01em; }
+.logo { width: 20px; height: 20px; border-radius: 6px; background: linear-gradient(135deg, var(--accent), #c38bff); display: grid; place-items: center; color: #fff; font-size: 12px; }
+.project { color: var(--muted); font-family: var(--mono); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+.spacer { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid var(--border-2); background: var(--panel-2); cursor: pointer; font-size: 12.5px; white-space: nowrap; transition: background .12s, border-color .12s; }
+.btn:hover { background: var(--hover); border-color: var(--faint); }
+.btn.primary { background: var(--accent); border-color: transparent; color: #fff; font-weight: 500; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { background: var(--red); border-color: transparent; color: #fff; }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn.ghost:hover { color: var(--text); background: var(--hover); }
+.btn:disabled { opacity: .45; cursor: default; }
+kbd { font-family: var(--mono); font-size: 10.5px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border-2); border-bottom-width: 2px; color: var(--muted); background: var(--panel-2); }
+.col { min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--panel); }
+.col-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); min-height: 46px; }
+.col-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.search { flex: 1; display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--panel-2); color: var(--muted); }
+.search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; }
+.scroll { flex: 1; overflow: auto; }
+.scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.scroll::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 10px; border: 3px solid var(--panel); }
+.group { padding: 6px 0 4px; }
+.group-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px 6px; color: var(--muted); font-size: 12px; }
+.group-head .sid { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+.group-head .gname { color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.group-head .gmeta { margin-left: auto; color: var(--faint); white-space: nowrap; font-size: 11.5px; }
+.snap { position: relative; display: grid; grid-template-columns: 44px 1fr auto; gap: 2px 8px; align-items: center; padding: 7px 14px 7px 24px; cursor: pointer; border-left: 2px solid transparent; }
+.snap::before { content: ""; position: absolute; left: 14px; top: 0; bottom: 0; width: 1px; background: var(--border-2); }
+.group.loose .snap::before { display: none; }
+.snap::after { content: ""; position: absolute; left: 11px; top: 14px; width: 7px; height: 7px; border-radius: 50%; background: var(--panel); border: 1.5px solid var(--faint); }
+.snap.t-guard::after { border-color: var(--yellow); background: var(--yellow); }
+.snap.t-restore::after, .snap.t-safety::after { border-color: var(--cyan); }
+.snap:hover { background: var(--hover); }
+.snap.sel { background: var(--sel); border-left-color: var(--accent); }
+.snap .id { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.snap.sel .id { color: var(--text); }
+.snap .desc { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.snap .when { color: var(--faint); font-size: 11.5px; text-align: right; white-space: nowrap; }
+.snap .sub { grid-column: 2 / 4; display: flex; gap: 8px; align-items: center; font-size: 11.5px; color: var(--faint); min-width: 0; }
+.chip { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; background: var(--hover); color: var(--muted); white-space: nowrap; }
+.chip.manual, .chip.init { background: var(--green-bg); color: var(--green); }
+.chip.hook { background: rgba(199,146,234,.12); color: var(--magenta); }
+.chip.guard { background: var(--yellow-bg); color: var(--yellow); }
+.chip.watch { background: var(--accent-bg); color: var(--accent); }
+.chip.restore, .chip.safety, .chip.run-start, .chip.run-end { background: rgba(92,197,214,.11); color: var(--cyan); }
+.stats { font-family: var(--mono); font-size: 11px; display: inline-flex; gap: 6px; }
+.a { color: var(--green); } .m { color: var(--yellow); } .d { color: var(--red); } .r { color: var(--cyan); }
+.files .file { display: flex; align-items: center; gap: 9px; padding: 6px 12px; cursor: pointer; border-left: 2px solid transparent; }
+.files .file:hover { background: var(--hover); }
+.files .file.sel { background: var(--sel); border-left-color: var(--accent); }
+.badge { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border-radius: 5px; font: 600 10.5px var(--mono); }
+.badge.A { background: var(--green-bg); color: var(--green); } .badge.M { background: var(--yellow-bg); color: var(--yellow); }
+.badge.D { background: var(--red-bg); color: var(--red); } .badge.R { background: rgba(92,197,214,.12); color: var(--cyan); }
+.fpath { min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; font-family: var(--mono); font-size: 12px; }
+.fpath span { direction: ltr; unicode-bidi: bidi-override; }
+.fpath .dir { color: var(--faint); }
+.seg { display: inline-flex; border: 1px solid var(--border-2); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 0 10px; height: 26px; cursor: pointer; color: var(--muted); font-size: 12px; }
+.seg button.on { background: var(--sel); color: var(--text); }
+main { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+.detail-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel); min-height: 46px; }
+.detail-path { font-family: var(--mono); font-size: 12.5px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.snapbar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--panel); }
+.snapbar h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.snapbar .meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.diff { flex: 1; overflow: auto; font: 12px/1.6 var(--mono); }
+.diff table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+.diff td { padding: 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; vertical-align: top; }
+.diff td.ln { width: 52px; text-align: right; color: var(--faint); user-select: none; padding: 0 8px; }
+.diff td.sign { width: 18px; padding: 0 0 0 6px; color: var(--faint); user-select: none; }
+.diff tr.add td.code, .diff td.code.add { background: var(--green-bg); }
+.diff tr.add td.ln, .diff tr.add td.sign, .diff td.ln.add { background: var(--green-strong); color: var(--green); }
+.diff tr.del td.code, .diff td.code.del { background: var(--red-bg); }
+.diff tr.del td.ln, .diff tr.del td.sign, .diff td.ln.del { background: var(--red-strong); color: var(--red); }
+.diff td.empty { background: repeating-linear-gradient(-45deg, transparent 0 6px, var(--hover) 6px 7px); }
+.diff tr.hunk td { background: var(--accent-bg); color: var(--accent); padding: 3px 12px; font-size: 11.5px; }
+.diff .split td.code { width: calc(50% - 52px); border-right: 1px solid var(--border); }
+.tok-s { color: var(--tok-str); } .tok-k { color: var(--tok-kw); } .tok-n { color: var(--tok-num); } .tok-c { color: var(--tok-com); font-style: italic; } .tok-f { color: var(--tok-fn); }
+.empty-state { flex: 1; display: grid; place-items: center; color: var(--faint); text-align: center; padding: 30px; }
+.empty-state .big { font-size: 15px; color: var(--muted); margin-bottom: 6px; }
+.note { padding: 26px; color: var(--muted); }
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; z-index: 50; }
+.modal-bg.open { display: flex; }
+.modal { width: min(520px, 92vw); max-height: 80vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border-2); border-radius: 12px; box-shadow: var(--shadow); animation: pop .14s ease-out; }
+@keyframes pop { from { transform: translateY(6px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.modal h3 { margin: 0; padding: 18px 20px 4px; font-size: 15px; font-weight: 600; }
+.modal .body { padding: 6px 20px 14px; color: var(--muted); overflow: auto; }
+.modal .body code { font-family: var(--mono); font-size: 12px; color: var(--text); background: var(--hover); padding: 1px 5px; border-radius: 4px; }
+.modal .foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; border-top: 1px solid var(--border); }
+.helpgrid { display: grid; grid-template-columns: auto 1fr; gap: 9px 16px; align-items: center; color: var(--text); }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0; background: var(--panel); border: 1px solid var(--border-2); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow); transition: all .2s; z-index: 60; display: flex; gap: 10px; align-items: center; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+.toast .ok { color: var(--green); font-weight: 600; }
+.toast .bad { color: var(--red); font-weight: 600; }
+.icon { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 1000px) { .app { grid-template-columns: 290px 1fr; } .col.files-col { display: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><div class="logo">&#x21BA;</div>Rewind</div>
+    <div class="project" id="project"></div>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="undoBtn" title="Undo the last change (u)"><svg class="icon" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Undo last change</button>
+    <button class="btn ghost" id="themeBtn" title="Toggle theme (t)"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
+    <button class="btn ghost" id="helpBtn" title="Keyboard shortcuts (?)"><kbd>?</kbd></button>
+  </header>
+
+  <section class="col">
+    <div class="col-head">
+      <div class="search"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Filter by file or label" autocomplete="off" spellcheck="false"><kbd>/</kbd></div>
+    </div>
+    <div class="scroll" id="timeline"></div>
+  </section>
+
+  <section class="col files-col">
+    <div class="col-head">
+      <span class="col-title" id="filesTitle">Files</span>
+      <div class="spacer"></div>
+      <div class="seg" title="Compare against"><button id="basePrev" class="on" title="Changes made in this snapshot">This step</button><button id="baseNow" title="What restoring this snapshot would change">vs now</button></div>
+    </div>
+    <div class="scroll files" id="files"></div>
+  </section>
+
+  <main>
+    <div class="snapbar" id="snapbar" style="display:none">
+      <h2 id="snapTitle"></h2><span class="meta" id="snapMeta"></span>
+      <div class="spacer"></div>
+      <button class="btn primary" id="restoreAll" title="Restore the whole project to this point">Restore to this point</button>
+    </div>
+    <div class="detail-head" id="detailHead" style="display:none">
+      <span class="badge" id="dBadge"></span>
+      <span class="detail-path" id="dPath"></span>
+      <div class="spacer"></div>
+      <div class="seg"><button id="modeUni" class="on">Unified</button><button id="modeSplit">Split</button></div>
+      <button class="btn" id="restoreFile" title="Restore this file (r)">Restore this file</button>
+    </div>
+    <div class="diff scroll" id="diff"><div class="empty-state"><div><div class="big">Loading timeline…</div></div></div></div>
+  </main>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal" role="dialog" aria-modal="true">
+  <h3 id="mTitle"></h3><div class="body" id="mBody"></div>
+  <div class="foot" id="mFoot"></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+"use strict";
+const TOKEN = new URLSearchParams(location.search).get("t") || "";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const state = { data: null, flat: [], sel: null, files: [], fileSel: -1, base: "parent", mode: localStorage.getItem("rewind.mode") || "unified", q: "", snapCache: new Map() };
+
+async function api(path, body) {
+  const opts = { headers: { "X-Rewind-Token": TOKEN } };
+  if (body !== undefined) { opts.method = "POST"; opts.body = JSON.stringify(body); opts.headers["Content-Type"] = "application/json"; }
+  const res = await fetch(path, opts);
+  const json = await res.json().catch(() => ({ error: "bad response" }));
+  if (!res.ok) throw new Error(json.error || res.statusText);
+  return json;
+}
+
+// ---------- theme
+function applyTheme(t) { document.documentElement.dataset.theme = t; localStorage.setItem("rewind.theme", t); }
+applyTheme(localStorage.getItem("rewind.theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+$("themeBtn").onclick = () => applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
+
+// ---------- time
+function ago(ts) {
+  const d = Math.max(0, Date.now() / 1000 - ts);
+  if (d < 45) return "just now";
+  if (d < 3600) return Math.max(1, Math.round(d / 60)) + "m ago";
+  if (d < 86400) return Math.round(d / 3600) + "h ago";
+  if (d < 86400 * 30) return Math.round(d / 86400) + "d ago";
+  return new Date(ts * 1000).toLocaleDateString();
+}
+function dur(s) { s = Math.round(s || 0); if (s < 60) return s + "s"; const m = Math.floor(s / 60); if (m < 60) return m + "m " + String(s % 60).padStart(2, "0") + "s"; return Math.floor(m / 60) + "h " + String(m % 60).padStart(2, "0") + "m"; }
+function clock(ts) { return new Date(ts * 1000).toLocaleString(); }
+function statsHtml(s) {
+  if (!s) return "";
+  const p = [];
+  if (s.added) p.push(`<span class="a">+${s.added}</span>`);
+  if (s.modified) p.push(`<span class="m">~${s.modified}</span>`);
+  if (s.renamed) p.push(`<span class="r">&gt;${s.renamed}</span>`);
+  if (s.deleted) p.push(`<span class="d">-${s.deleted}</span>`);
+  return `<span class="stats">${p.join("") || '<span>no changes</span>'}</span>`;
+}
+const LABELS = { manual: "snap", watch: "watch", guard: "seatbelt", safety: "safety", restore: "restore", "run-start": "start", "run-end": "end", init: "init" };
+function label(m) { return m.trigger === "hook" ? (m.tool || "hook") : (LABELS[m.trigger] || m.trigger || "?"); }
+function describe(m) {
+  if (m.trigger === "manual") return m.message ? `“${m.message}”` : "Checkpoint";
+  if (m.trigger === "hook" && m.detail) return (m.message || "").split(" ")[0] + " " + m.detail.replace(/\s+/g, " ");
+  if (m.trigger === "guard" && (m.message || "").startsWith("blocked") && m.detail) return "blocked: " + m.detail.replace(/\s+/g, " ");
+  return m.message || label(m);
+}
+
+// ---------- timeline
+async function loadTimeline(keepSel) {
+  state.data = await api("/api/timeline");
+  $("project").textContent = state.data.project;
+  document.title = "Rewind · " + state.data.name;
+  renderTimeline();
+  if (!state.flat.length) {
+    $("diff").innerHTML = `<div class="empty-state"><div><div class="big">No snapshots yet</div>Run <code>rewind snap</code> or start an agent with <code>rewind run -- claude</code>.</div></div>`;
+    return;
+  }
+  const keep = keepSel && state.flat.find(m => m.id === keepSel);
+  selectSnap(keep ? keep.id : state.flat[0].id);
+}
+
+function renderTimeline() {
+  const sessions = new Map((state.data.sessions || []).map(s => [s.id, s]));
+  const q = state.q.toLowerCase();
+  let snaps = state.data.snapshots.slice().reverse().filter(m => m.trigger !== "safety");
+  if (q) snaps = snaps.filter(m => (describe(m) + " " + label(m) + " #" + m.id + " " + (m.session || "") + " " + (m.detail || "")).toLowerCase().includes(q) || (m._paths || "").includes(q));
+  state.flat = snaps;
+  const el = $("timeline");
+  if (!snaps.length) { el.innerHTML = `<div class="note">${q ? "No snapshots match “" + esc(state.q) + "”." : "No snapshots yet."}</div>`; return; }
+  let html = "", cur = undefined;
+  for (const m of snaps) {
+    const g = m.session || null;
+    if (g !== cur) {
+      if (cur !== undefined) html += "</div>";
+      const s = g && sessions.get(g);
+      html += `<div class="group ${g ? "" : "loose"}">`;
+      if (s) {
+        const end = s.ended || s.last;
+        const meta = [ago(s.started), end ? dur(end - s.started) : "", s.exit_code != null ? "exit " + s.exit_code : ""].filter(Boolean).join(" · ");
+        html += `<div class="group-head"><span class="sid">${esc(s.id)}</span><span class="gname">${esc(s.name || "")}</span><span class="gmeta">${esc(meta)}</span></div>`;
+      }
+      cur = g;
+    }
+    html += `<div class="snap t-${esc(m.trigger)} ${state.sel === m.id ? "sel" : ""}" data-id="${m.id}">
+      <span class="id">#${m.id}</span><span class="desc" title="${esc(describe(m))}">${esc(describe(m))}</span><span class="when" title="${esc(clock(m.time))}">${ago(m.time)}</span>
+      <span class="sub"><span class="chip ${esc(m.trigger)}">${esc(label(m))}</span>${statsHtml(m.stats)}</span></div>`;
+  }
+  el.innerHTML = html + "</div>";
+  el.querySelectorAll(".snap").forEach(n => n.onclick = () => selectSnap(+n.dataset.id));
+}
+
+async function selectSnap(id) {
+  state.sel = id;
+  document.querySelectorAll(".snap").forEach(n => n.classList.toggle("sel", +n.dataset.id === id));
+  const node = document.querySelector(`.snap[data-id="${id}"]`);
+  if (node) node.scrollIntoView({ block: "nearest" });
+  const m = state.data.snapshots.find(x => x.id === id);
+  $("snapbar").style.display = "flex";
+  $("snapTitle").textContent = `#${id} · ${describe(m)}`;
+  $("snapMeta").innerHTML = `${esc(clock(m.time))} · ${m.files} files ${m.session ? "· " + esc(m.session) : ""}`;
+  const key = id + ":" + state.base;
+  let snap = state.snapCache.get(key);
+  if (!snap) {
+    try { snap = await api(`/api/snapshot?id=${id}&base=${state.base}`); }
+    catch (e) { return showError(e); }
+    state.snapCache.set(key, snap);
+  }
+  if (state.sel !== id) return;
+  m._paths = snap.changes.map(c => c.path.toLowerCase()).join("\n");
+  const q = state.q.toLowerCase();
+  state.files = q && snap.changes.some(c => c.path.toLowerCase().includes(q)) ? snap.changes.filter(c => c.path.toLowerCase().includes(q)) : snap.changes;
+  $("filesTitle").textContent = `${state.files.length} file${state.files.length === 1 ? "" : "s"} ${state.base === "now" ? "differ from now" : "changed"}`;
+  renderFiles();
+  if (state.files.length) selectFile(0); else {
+    state.fileSel = -1;
+    $("detailHead").style.display = "none";
+    $("diff").innerHTML = `<div class="empty-state"><div><div class="big">${state.base === "now" ? "Your files match this snapshot" : "No file changes in this step"}</div>${state.base === "now" ? "" : "Try <b>vs now</b> to see what restoring would change."}</div></div>`;
+  }
+}
+
+function pathHtml(p) {
+  const i = p.lastIndexOf("/");
+  return `<span>${i >= 0 ? `<span class="dir">${esc(p.slice(0, i + 1))}</span>` : ""}${esc(p.slice(i + 1))}</span>`;
+}
+function renderFiles() {
+  const el = $("files");
+  if (!state.files.length) { el.innerHTML = `<div class="note">Nothing here.</div>`; return; }
+  el.innerHTML = state.files.map((c, i) => `<div class="file ${i === state.fileSel ? "sel" : ""}" data-i="${i}" title="${esc(c.old_path ? c.old_path + " → " + c.path : c.path)}"><span class="badge ${c.status}">${c.status}</span><span class="fpath">${pathHtml(c.path)}</span></div>`).join("");
+  el.querySelectorAll(".file").forEach(n => n.onclick = () => selectFile(+n.dataset.i));
+}
+
+async function selectFile(i) {
+  if (i < 0 || i >= state.files.length) return;
+  state.fileSel = i;
+  document.querySelectorAll(".file").forEach(n => n.classList.toggle("sel", +n.dataset.i === i));
+  const n = document.querySelector(`.file[data-i="${i}"]`); if (n) n.scrollIntoView({ block: "nearest" });
+  const c = state.files[i];
+  $("detailHead").style.display = "flex";
+  $("dBadge").className = "badge " + c.status; $("dBadge").textContent = c.status;
+  $("dPath").textContent = c.old_path ? `${c.old_path} → ${c.path}` : c.path;
+  const m = state.data.snapshots.find(x => x.id === state.sel);
+  // a file deleted in this step is brought back from the snapshot before it
+  state.fileRestoreId = (state.base === "parent" && c.status === "D") ? m.parent : state.sel;
+  $("restoreFile").textContent = c.status === "D" && state.base === "parent" ? "Bring back previous version" : (state.base === "now" && c.status === "D" ? "Delete like snapshot" : "Restore this version");
+  $("restoreFile").disabled = state.fileRestoreId == null;
+  const id = state.sel;
+  let d;
+  try { d = await api(`/api/diff?id=${id}&path=${encodeURIComponent(c.path)}&base=${state.base}`); }
+  catch (e) { return showError(e); }
+  if (state.sel !== id || state.fileSel !== i) return;
+  renderDiff(d, c.path);
+}
+
+// ---------- syntax-ish highlighting
+const KW = new Set("and as assert async await break case catch class const continue def default del delete do elif else enum except export extends false False finally fn for from func function go if impl import in interface is lambda let match mod new nil None not null or package pass pub raise return self static struct super switch this throw true True try type typeof use var void while with yield".split(" "));
+const TOK = /(\/\/.*$|#.*$|--\s.*$|\/\*.*?\*\/)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b\d[\d_]*(?:\.\d+)?(?:e[+-]?\d+)?\b|\b0x[0-9a-f]+\b)|([A-Za-z_$][\w$]*)(?=\s*\()|([A-Za-z_$][\w$]*)/gi;
+function hl(line, ext) {
+  if (line.length > 2000) return esc(line);
+  const hashComments = /^(py|rb|sh|bash|zsh|yml|yaml|toml|r|pl|conf|ini|env|mk|dockerfile|gitignore|rewindignore)$/.test(ext) || ext === "";
+  let out = "", last = 0, m;
+  TOK.lastIndex = 0;
+  while ((m = TOK.exec(line))) {
+    out += esc(line.slice(last, m.index));
+    const t = m[0];
+    if (m[1]) {
+      if (t[0] === "#" && !hashComments) { out += esc(t[0]); TOK.lastIndex = m.index + 1; last = m.index + 1; continue; }
+      out += `<span class="tok-c">${esc(t)}</span>`;
+    }
+    else if (m[2]) out += `<span class="tok-s">${esc(t)}</span>`;
+    else if (m[3]) out += `<span class="tok-n">${esc(t)}</span>`;
+    else if (m[4]) out += KW.has(t) ? `<span class="tok-k">${esc(t)}</span>` : `<span class="tok-f">${esc(t)}</span>`;
+    else out += KW.has(t) ? `<span class="tok-k">${esc(t)}</span>` : esc(t);
+    last = TOK.lastIndex;
+    if (TOK.lastIndex === m.index) TOK.lastIndex++;
+  }
+  return out + esc(line.slice(last));
+}
+
+function renderDiff(d, path) {
+  const el = $("diff");
+  const ext = (path.split("/").pop().split(".").length > 1 ? path.split(".").pop() : path.split("/").pop().replace(/^\./, "")).toLowerCase();
+  if (d.binary) { el.innerHTML = `<div class="empty-state"><div><div class="big">Binary file</div>${fmtSize(d.old_size)} → ${fmtSize(d.new_size)}</div></div>`; return; }
+  if (d.too_large) { el.innerHTML = `<div class="empty-state"><div><div class="big">File too large to diff</div>${fmtSize(d.old_size)} → ${fmtSize(d.new_size)}</div></div>`; return; }
+  if (!d.hunks.length) {
+    const why = d.old_link !== undefined || d.new_link !== undefined ? "Symlink change" : d.status === "R" ? "Renamed, content unchanged" : "Only file permissions changed";
+    el.innerHTML = `<div class="empty-state"><div><div class="big">${why}</div></div></div>`; return;
+  }
+  const split = state.mode === "split";
+  let html = `<table class="${split ? "split" : ""}">`;
+  if (split) html += `<colgroup><col style="width:52px"><col><col style="width:52px"><col></colgroup>`;
+  else html += `<colgroup><col style="width:52px"><col style="width:52px"><col style="width:18px"><col></colgroup>`;
+  for (const h of d.hunks) {
+    const aStart = Math.min(...h.map(r => r[1] || Infinity)), bStart = Math.min(...h.map(r => r[3] || Infinity));
+    const aCount = h.filter(r => r[1]).length, bCount = h.filter(r => r[3]).length;
+    html += `<tr class="hunk"><td colspan="4">@@ -${isFinite(aStart) ? aStart : 0},${aCount} +${isFinite(bStart) ? bStart : 0},${bCount} @@</td></tr>`;
+    if (split) {
+      for (const [k, an, at, bn, bt] of h) {
+        const lc = k === "eq" ? "" : (an ? "del" : "");
+        const rc = k === "eq" ? "" : (bn ? "add" : "");
+        html += `<tr><td class="ln ${lc}">${an || ""}</td><td class="code ${lc} ${an ? "" : "empty"}">${an ? hl(at, ext) : ""}</td><td class="ln ${rc}">${bn || ""}</td><td class="code ${rc} ${bn ? "" : "empty"}">${bn ? hl(bt, ext) : ""}</td></tr>`;
+      }
+    } else {
+      const dels = [], adds = [];
+      const flush = () => {
+        for (const [n, t] of dels) html += `<tr class="del"><td class="ln">${n}</td><td class="ln"></td><td class="sign">-</td><td class="code">${hl(t, ext)}</td></tr>`;
+        for (const [n, t] of adds) html += `<tr class="add"><td class="ln"></td><td class="ln">${n}</td><td class="sign">+</td><td class="code">${hl(t, ext)}</td></tr>`;
+        dels.length = 0; adds.length = 0;
+      };
+      for (const [k, an, at, bn, bt] of h) {
+        if (k === "eq") { flush(); html += `<tr><td class="ln">${an}</td><td class="ln">${bn}</td><td class="sign"></td><td class="code">${hl(at, ext)}</td></tr>`; continue; }
+        if (an) dels.push([an, at]);
+        if (bn) adds.push([bn, bt]);
+      }
+      flush();
+    }
+  }
+  el.innerHTML = html + "</table>";
+  el.scrollTop = 0;
+}
+function fmtSize(n) { n = n || 0; if (n < 1024) return n + " B"; if (n < 1048576) return (n / 1024).toFixed(1) + " KB"; return (n / 1048576).toFixed(1) + " MB"; }
+
+// ---------- modes
+function setMode(m) { state.mode = m; localStorage.setItem("rewind.mode", m); $("modeUni").classList.toggle("on", m === "unified"); $("modeSplit").classList.toggle("on", m === "split"); if (state.fileSel >= 0) selectFile(state.fileSel); }
+$("modeUni").onclick = () => setMode("unified"); $("modeSplit").onclick = () => setMode("split"); setMode(state.mode);
+function setBase(b) { state.base = b; $("basePrev").classList.toggle("on", b === "parent"); $("baseNow").classList.toggle("on", b === "now"); if (state.sel != null) selectSnap(state.sel); }
+$("basePrev").onclick = () => setBase("parent"); $("baseNow").onclick = () => setBase("now");
+
+// ---------- modal / toast
+let modalResolve = null;
+function modal(title, bodyHtml, buttons) {
+  $("mTitle").textContent = title; $("mBody").innerHTML = bodyHtml;
+  $("mFoot").innerHTML = "";
+  return new Promise(resolve => {
+    modalResolve = resolve;
+    buttons.forEach(([text, cls, val], i) => {
+      const b = document.createElement("button"); b.className = "btn " + (cls || ""); b.textContent = text;
+      b.onclick = () => closeModal(val); $("mFoot").appendChild(b);
+      if (cls && cls.includes("primary")) setTimeout(() => b.focus(), 30);
+    });
+    $("modalBg").classList.add("open");
+  });
+}
+function closeModal(val) { $("modalBg").classList.remove("open"); if (modalResolve) { const r = modalResolve; modalResolve = null; r(val); } }
+$("modalBg").onclick = (e) => { if (e.target === $("modalBg")) closeModal(false); };
+let toastTimer;
+function toast(html) { const t = $("toast"); t.innerHTML = html; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 4200); }
+function showError(e) { toast(`<span class="bad">Error</span> ${esc(e.message || e)}`); }
+
+async function doRestore(paths, idOverride) {
+  const id = idOverride != null ? idOverride : state.sel;
+  const what = paths ? `<code>${esc(paths[0])}</code>` : "the <b>whole project</b>";
+  const ok = await modal(paths ? "Restore this file?" : `Restore to #${id}?`,
+    `This puts ${what} back to how it was in snapshot <code>#${id}</code>.${paths ? "" : " Files created after it are removed."}<br><br>Rewind first saves a safety snapshot of your current files, so this can be undone.`,
+    [["Cancel", "", false], [paths ? "Restore file" : "Restore project", "primary", true]]);
+  if (!ok) return;
+  try {
+    const r = await api("/api/restore", { id, paths: paths || null });
+    state.snapCache.clear();
+    toast(r.changed ? `<span class="ok">Restored</span> ${r.changed} file${r.changed === 1 ? "" : "s"}. Previous state saved as #${r.safety_id}.` : "Nothing to restore: files already match.");
+    await loadTimeline(state.sel);
+  } catch (e) { showError(e); }
+}
+$("restoreAll").onclick = () => doRestore(null);
+$("restoreFile").onclick = () => { const c = state.files[state.fileSel]; if (c && state.fileRestoreId != null) doRestore([c.path], state.fileRestoreId); };
+
+async function doUndo() {
+  const ok = await modal("Undo the last change?", "Rewind reverts your files to the previous snapshot that differs from them. A safety snapshot is taken first, so you can redo with <code>rewind redo</code>.", [["Cancel", "", false], ["Undo", "primary", true]]);
+  if (!ok) return;
+  try { const r = await api("/api/undo", {}); state.snapCache.clear(); toast(`<span class="ok">Undone</span> ${r.changed} file${r.changed === 1 ? "" : "s"} reverted.`); await loadTimeline(); }
+  catch (e) { showError(e); }
+}
+$("undoBtn").onclick = doUndo;
+
+function showHelp() {
+  const rows = [["j / k", "Next / previous snapshot"], ["J / K  or  ↓ / ↑", "Next / previous file"], ["/", "Filter by file or label"], ["r", "Restore selected file"], ["Shift R", "Restore project to selected snapshot"], ["u", "Undo last change"], ["s", "Toggle unified / split diff"], ["n", "Toggle this step / vs now"], ["t", "Toggle light / dark"], ["?", "This help"], ["Esc", "Close / clear filter"]];
+  modal("Keyboard shortcuts", `<div class="helpgrid">${rows.map(([k, v]) => `<span>${k.split("  or  ").map(x => x.split(" / ").map(y => `<kbd>${esc(y)}</kbd>`).join(" / ")).join(" or ")}</span><span>${esc(v)}</span>`).join("")}</div>`, [["Close", "primary", false]]);
+}
+$("helpBtn").onclick = showHelp;
+
+// ---------- search & keys
+let qTimer;
+$("q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = $("q").value.trim(); renderTimeline(); if (state.flat.length && !state.flat.find(m => m.id === state.sel)) selectSnap(state.flat[0].id); else if (state.sel != null) selectSnap(state.sel); }, 120); });
+function moveSnap(d) { const i = state.flat.findIndex(m => m.id === state.sel); const n = state.flat[Math.min(state.flat.length - 1, Math.max(0, i + d))]; if (n && n.id !== state.sel) selectSnap(n.id); }
+document.addEventListener("keydown", (e) => {
+  if ($("modalBg").classList.contains("open")) { if (e.key === "Escape") closeModal(false); if (e.key === "Enter") { const p = $("mFoot").querySelector(".primary"); if (p && document.activeElement.tagName !== "BUTTON") p.click(); } return; }
+  if (e.target === $("q")) { if (e.key === "Escape") { $("q").value = ""; $("q").dispatchEvent(new Event("input")); $("q").blur(); } if (e.key === "Enter") $("q").blur(); return; }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  if (k === "j") moveSnap(1); else if (k === "k") moveSnap(-1);
+  else if (k === "J" || k === "ArrowDown") { e.preventDefault(); selectFile(state.fileSel + 1); }
+  else if (k === "K" || k === "ArrowUp") { e.preventDefault(); selectFile(state.fileSel - 1); }
+  else if (k === "/") { e.preventDefault(); $("q").focus(); $("q").select(); }
+  else if (k === "?") showHelp();
+  else if (k === "u") doUndo();
+  else if (k === "r") $("restoreFile").click();
+  else if (k === "R") doRestore(null);
+  else if (k === "s") setMode(state.mode === "split" ? "unified" : "split");
+  else if (k === "n") setBase(state.base === "now" ? "parent" : "now");
+  else if (k === "t") $("themeBtn").click();
+  else if (k === "Escape" && state.q) { $("q").value = ""; $("q").dispatchEvent(new Event("input")); }
+});
+
+loadTimeline().catch(showError);
+})();
+</script>
+</body>
+</html>
