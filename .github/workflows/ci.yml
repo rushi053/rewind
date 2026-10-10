@@ -28,6 +28,11 @@ jobs:
         run: python -c "import importlib.metadata as m; r = m.requires('rewind-cli') or []; assert not [x for x in r if 'extra' not in x], r"
       - name: Test
         run: python -m pytest -o addopts="" -ra
+      - name: Launchers (macOS bundle is linted with plutil on macOS runners)
+        run: |
+          REWIND_BIN="$(command -v rewind)" sh scripts/build-macos-app.sh "$RUNNER_TEMP/app"
+          if command -v plutil >/dev/null; then plutil -lint "$RUNNER_TEMP/app/Rewind.app/Contents/Info.plist"; fi
+          sh -n install.sh
       - name: End-to-end disaster demo
         run: |
           git config --global user.email ci@example.com
@@ -47,4 +52,5 @@ jobs:
         run: |
           python -m venv /tmp/w && /tmp/w/bin/pip install dist/*.whl
           /tmp/w/bin/rewind --version
-          /tmp/w/bin/python -c "import rewind_cli, pathlib; assert (pathlib.Path(rewind_cli.__file__).parent / 'static' / 'ui.html').exists()"
+          /tmp/w/bin/python -c "import rewind_cli, pathlib; d = pathlib.Path(rewind_cli.__file__).parent / 'static'; assert all((d / f).exists() for f in ('ui.html', 'app.html', 'icon.icns', 'icon.ico', 'icon-256.png', 'icon-32.png'))"
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' | /tmp/w/bin/rewind mcp | grep -q '"protocolVersion":"2025-06-18"'

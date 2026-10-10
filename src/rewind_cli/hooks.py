@@ -122,35 +122,135 @@ def _strip_ours(hooks_obj, agent):
     return cleaned
 
 
-def install(root, agent, local=False):
-    path = settings_path(root, agent, local)
-    data = _load(path)
+def load_settings(path):
+    return _load(path)
+
+
+def compute_install(data, agent):
+    """Return a copy of a settings dict with Rewind's hooks (re)installed."""
+    data = json.loads(json.dumps(data))
     if agent == "cursor":
         data.setdefault("version", 1)
     hooks_obj = data.get("hooks") or {}
     if not isinstance(hooks_obj, dict):
-        raise RewindError("%s has a non-object \"hooks\" key" % path)
+        raise RewindError("the settings file has a non-object \"hooks\" key")
     hooks_obj = _strip_ours(hooks_obj, agent)
     for event, groups in _desired(agent).items():
         hooks_obj.setdefault(event, [])
         hooks_obj[event].extend(groups)
     data["hooks"] = hooks_obj
-    _save(path, data)
-    return path
+    return data
 
 
-def uninstall(root, agent, local=False):
-    path = settings_path(root, agent, local)
-    if not path.exists():
-        return None
-    data = _load(path)
+def compute_uninstall(data, agent):
+    data = json.loads(json.dumps(data))
     hooks_obj = _strip_ours(data.get("hooks") or {}, agent)
     if hooks_obj:
         data["hooks"] = hooks_obj
     else:
         data.pop("hooks", None)
-    _save(path, data)
+    return data
+
+
+def install(root, agent, local=False, commands=True):
+    path = settings_path(root, agent, local)
+    _save(path, compute_install(_load(path), agent))
+    if agent == "claude" and commands:
+        install_commands(root)
     return path
+
+
+def uninstall(root, agent, local=False):
+    if agent == "claude":
+        uninstall_commands(root)
+    path = settings_path(root, agent, local)
+    if not path.exists():
+        return None
+    _save(path, compute_uninstall(_load(path), agent))
+    return path
+
+
+# ------------------------------------------------------- Claude Code commands
+COMMAND_MARKER = "<!-- managed by rewind: `rewind hook uninstall claude` removes this file -->"
+
+
+def _rewind_base():
+    return "rewind" if shutil.which("rewind") else '"%s" -m rewind_cli' % sys.executable
+
+
+def slash_commands():
+    """{filename: markdown} for the /rewind-* commands Claude Code offers."""
+    base = _rewind_base()
+    return {
+        "rewind-undo.md": (
+            "---\n"
+            "description: Preview and undo the last file change (Rewind)\n"
+            "allowed-tools: Bash(%(b)s undo:*)\n"
+            "---\n"
+            "Here is what `rewind undo` would change. This is a dry run: nothing has been changed yet.\n\n"
+            "!`%(b)s undo --dry-run`\n\n"
+            "Show the user this preview in plain words and ask them to confirm. Only if they clearly confirm, "
+            "run `%(b)s undo -y` and report the result, including the line that says how to get the previous "
+            "state back. If the preview says there is nothing to undo, say so and stop.\n\n%(m)s\n"
+        ) % {"b": base, "m": COMMAND_MARKER},
+        "rewind-log.md": (
+            "---\n"
+            "description: Show recent Rewind history for this project\n"
+            "allowed-tools: Bash(%(b)s log:*)\n"
+            "---\n"
+            "!`%(b)s log -n 20`\n\n"
+            "Summarize this history for the user: what changed recently and when, grouped by session. "
+            "Mention that /rewind-undo reverts the last change and `rewind undo --session` reverts a whole "
+            "session. Do not change any files.\n\n%(m)s\n"
+        ) % {"b": base, "m": COMMAND_MARKER},
+        "rewind-checkpoint.md": (
+            "---\n"
+            "description: Save a Rewind checkpoint of the project right now\n"
+            "argument-hint: [label]\n"
+            "allowed-tools: Bash(%(b)s snap:*)\n"
+            "---\n"
+            "!`%(b)s snap -m \"$ARGUMENTS\"`\n\n"
+            "Tell the user the checkpoint was saved (or that nothing had changed since the last one), and that "
+            "they can return to it with `rewind restore <id>` or from the Rewind app.\n\n%(m)s\n"
+        ) % {"b": base, "m": COMMAND_MARKER},
+    }
+
+
+def commands_dir(root):
+    return Path(root) / ".claude" / "commands"
+
+
+def install_commands(root):
+    """Write .claude/commands/rewind-*.md. Never overwrites a file Rewind didn't write."""
+    d = commands_dir(root)
+    d.mkdir(parents=True, exist_ok=True)
+    written = []
+    for name, text in slash_commands().items():
+        p = d / name
+        if p.exists() and COMMAND_MARKER not in p.read_text("utf-8", errors="replace"):
+            continue
+        p.write_text(text, "utf-8")
+        written.append(p)
+    return written
+
+
+def uninstall_commands(root):
+    removed = []
+    d = commands_dir(root)
+    for name in slash_commands():
+        p = d / name
+        try:
+            if p.exists() and COMMAND_MARKER in p.read_text("utf-8", errors="replace"):
+                p.unlink()
+                removed.append(p)
+        except OSError:
+            pass
+    try:
+        if d.exists() and not any(d.iterdir()):
+            d.rmdir()
+    except OSError:
+        pass
+    return removed
 
 
 def installed(root, agent):
@@ -298,6 +398,13 @@ def _run(repo, ev):
             )
             # record the block on the timeline (a metadata-only snapshot: no new content is stored)
             _capture(repo, session, "guard", "blocked: " + "; ".join(f.reason for f in findings), ev, start=is_new, force=True)
+            try:
+                from . import notify
+
+                notify.seatbelt_blocked(repo, AGENT_TITLES.get(ev.agent, ev.agent), ev.command or ev.file_path,
+                                        [f.reason for f in findings])
+            except Exception:
+                pass
             return _respond(ev.agent, "pre", False, text)
         if findings:
             trigger = "guard"

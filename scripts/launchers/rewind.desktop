@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Rewind
+GenericName=Undo for AI coding agents
+Comment=Protect folders and undo what AI tools change
+# Needs `rewind` on the PATH of your desktop session. `rewind app install-launcher`
+# writes ~/.local/share/applications/rewind.desktop with the full path and the icon.
+Exec=rewind app
+Icon=rewind
+Terminal=false
+Categories=Development;Utility;
+Keywords=undo;backup;snapshot;ai;agent;
+StartupNotify=false

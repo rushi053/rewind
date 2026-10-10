@@ -1,5 +1,6 @@
 #!/bin/sh
-# Rewind installer: installs the `rewind` CLI with uv, pipx, or pip (in that order).
+# Rewind installer: installs the `rewind` CLI with uv, pipx, or pip (in that order),
+# then adds a Rewind launcher (Applications on macOS, the app menu on Linux).
 #
 #   curl -fsSL https://raw.githubusercontent.com/rushi053/rewind/main/install.sh | sh
 #
@@ -8,6 +9,8 @@
 # Environment:
 #   REWIND_VERSION   install a specific version, e.g. 0.1.0
 #   REWIND_SOURCE    install from somewhere else, e.g. git+https://github.com/rushi053/rewind
+#   REWIND_NO_LAUNCHER=1   don't create the Rewind launcher
+#   REWIND_AUTOSTART=1     also start Rewind at login (keeps folders protected after a reboot)
 set -eu
 
 pkg="rewind-cli"
@@ -39,12 +42,34 @@ else
   "$py" -m pip install --user --upgrade "$pkg" || die "pip install failed"
 fi
 
+rewind_cmd=""
 if have rewind; then
-  say ""
-  say "Installed: $(rewind --version)"
-  say "Next:  cd your-project && rewind init"
+  rewind_cmd="rewind"
 else
+  for candidate in "$HOME/.local/bin/rewind" "$HOME/Library/Python/"*/bin/rewind; do
+    if [ -x "$candidate" ]; then rewind_cmd="$candidate"; break; fi
+  done
+fi
+
+if [ -z "$rewind_cmd" ]; then
   say ""
   say "Installed, but \`rewind\` is not on your PATH yet."
   say "uv/pipx users: run \`uv tool update-shell\` or \`pipx ensurepath\`, then open a new terminal."
+  exit 0
+fi
+
+say ""
+say "Installed: $("$rewind_cmd" --version)"
+if [ -z "${REWIND_NO_LAUNCHER:-}" ]; then
+  "$rewind_cmd" app install-launcher || say "(could not create the launcher; run \`rewind app\` instead)"
+fi
+if [ -n "${REWIND_AUTOSTART:-}" ]; then
+  "$rewind_cmd" app --autostart on || true
+fi
+say ""
+say "Open Rewind from your apps, or run:  rewind app"
+say "Prefer the terminal?                 cd your-project && rewind init"
+if ! have rewind; then
+  say ""
+  say "Note: \`rewind\` is not on your PATH yet. Run \`uv tool update-shell\` or \`pipx ensurepath\`, then open a new terminal."
 fi

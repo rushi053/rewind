@@ -14,6 +14,7 @@ def _isolate(tmp_path, monkeypatch):
     monkeypatch.setenv("REWIND_HOME", str(tmp_path / "rewind-home"))
     monkeypatch.setenv("NO_COLOR", "1")
     monkeypatch.delenv("REWIND_SESSION", raising=False)
+    monkeypatch.setenv("REWIND_NO_NOTIFY", "1")
     term.set_color(None)
     yield
     term.set_color(None)
@@ -63,3 +64,30 @@ def run_rewind(args, cwd, env=None, input_text=None, timeout=60):
     full_env.update(env or {})
     return subprocess.run([sys.executable, "-m", "rewind_cli"] + list(args), cwd=str(cwd), env=full_env,
                           input=input_text, capture_output=True, text=True, timeout=timeout)
+
+
+@pytest.fixture
+def fake_home(tmp_path, monkeypatch):
+    """A throwaway $HOME (config files for AI tools live there)."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.delenv("APPDATA", raising=False)
+    return home
+
+
+@pytest.fixture
+def stop_watchers():
+    """Stop every background watcher started for registered folders during a test."""
+    yield
+    from rewind_cli import registry
+    from rewind_cli.watch import stop_daemon
+
+    for entry in registry.load():
+        try:
+            stop_daemon(registry.repo_for(entry))
+        except Exception:
+            pass

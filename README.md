@@ -6,9 +6,64 @@
 
 <p align="center"><img src="docs/log.svg" alt="rewind log showing a Claude Code session and a wrapped aider session, then rewind undo --session" width="820"></p>
 
-Works with Claude Code, Codex CLI, Gemini CLI, Cursor, Aider, OpenCode, or any script. Pure Python standard library: no runtime dependencies, nothing to configure.
+Works with Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop, Windsurf, VS Code, Aider, OpenCode, or any script. Pure Python standard library: no runtime dependencies, nothing to configure. Use it from the terminal, or from the Rewind app if you'd rather never open one.
 
-## Quickstart
+## For everyone: the Rewind app
+
+<p align="center"><img src="docs/app-home.png" alt="The Rewind app: two protected folders, a banner saying a dangerous command from Claude Code was blocked, and recent activity" width="900"></p>
+
+The app is a local control center that runs in your browser. It does everything the CLI does, in plain language:
+
+- **Protect a folder.** Pick it from the projects Rewind finds, or browse to it. Rewind saves a copy of every file (including `.env` and other files Git ignores) and keeps saving as things change. One switch pauses or resumes it.
+- **Undo last change**, with a preview first: "1 file will come back, 2 files will change back and 1 file will be removed." If you change your mind, Redo puts it back.
+- **Go back in time** to 5 minutes ago, 1 hour ago, this morning, yesterday, or any saved moment on a slider. You always see what will change before you confirm, and your current files are saved first so going back can be undone too.
+- **Recover deleted files** one at a time or in bulk, without touching anything else.
+- **Connect your AI tools** in one click. Rewind detects Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop, Windsurf and VS Code, shows you the exact settings file it will change and the diff, and backs that file up to `~/.rewind/backups/` before writing.
+- **Settings in plain words**: what happens when an AI tool tries something dangerous (block, save a copy first, warn, or off), how long to keep history, how much space it uses and a Clean up button, notifications, and start at login.
+- **Activity**: every blocked command, restore and connection, across all folders. When the seatbelt blocks something you also get a desktop notification (best effort: `notify-send` on Linux, `osascript` on macOS).
+
+| | | |
+|---|---|---|
+| <img src="docs/app-go-back.png" alt="Go back in time: presets, a slider, and a preview reading 3 files will come back, 2 files will change back and 1 file will be removed" width="290"> | <img src="docs/app-recover.png" alt="Deleted files with a Bring back button on each" width="290"> | <img src="docs/app-connect-confirm.png" alt="Connect Cursor: the exact file, a diff of the change, and a note that a backup is saved first" width="290"> |
+| Go back in time | Recover deleted files | Connect AI tools (with the diff) |
+| <img src="docs/app-folder.png" alt="A folder's overview: Undo last change, Go back in time, the last AI session, deleted files, recent changes" width="290"> | <img src="docs/app-onboarding.png" alt="First run: pick a folder" width="290"> | <img src="docs/app-settings.png" alt="Settings: safety mode, history, notifications, start at login, storage" width="290"> |
+| A folder | First run | Settings |
+
+More: [onboarding step 2](docs/app-onboarding-tools.png), [connect screen](docs/app-connect.png), [activity](docs/app-activity.png), [technical timeline](docs/app-timeline.png), [dark mode](docs/app-home-dark.png). These screenshots come from `scripts/screenshots.py`, which builds a demo home folder with [`scripts/make-app-demo.py`](scripts/make-app-demo.py) using Rewind's real hook, restore and seatbelt code; only the snapshot timestamps are spread over a day afterwards so the time slider has something to show.
+
+### Install it without a terminal (almost)
+
+You need one command, once:
+
+```sh
+# macOS / Linux: installs Rewind with uv or pipx, then adds Rewind to Applications / your app menu
+curl -fsSL https://raw.githubusercontent.com/rushi053/rewind/main/install.sh | sh
+```
+
+```powershell
+# Windows (PowerShell): installs Rewind, then adds it to the Start menu and Desktop
+irm https://raw.githubusercontent.com/rushi053/rewind/main/install.ps1 | iex
+```
+
+(Rewind's own seatbelt flags `curl | sh`. Read [install.sh](install.sh) and [install.ps1](install.ps1) first; they are short.) After that, open **Rewind** like any other app. The first run walks you through three steps: pick a folder, connect your AI tools, done.
+
+Already have it installed? `rewind app` opens it, and `rewind app install-launcher` adds the launcher:
+
+| | launcher | start at login (`rewind app --autostart on`, or the switch in Settings) |
+|---|---|---|
+| macOS | `~/Applications/Rewind.app`, a minimal bundle whose executable runs `rewind app`. Also buildable with [`scripts/build-macos-app.sh`](scripts/build-macos-app.sh). | LaunchAgent `~/Library/LaunchAgents/dev.rewind.app.plist` |
+| Linux | `~/.local/share/applications/rewind.desktop` plus icon | systemd user unit `rewind-app.service`, or `~/.config/autostart/rewind.desktop` without systemd |
+| Windows | `%LOCALAPPDATA%\Rewind\Rewind.vbs` (no console window) and `Rewind.bat`, with Desktop and Start menu shortcuts | `Rewind.vbs` in your Startup folder |
+
+Generic copies that rely on `rewind` being on your PATH are in [`scripts/launchers/`](scripts/launchers/).
+
+**How it runs.** `rewind app` starts one background server per user on `127.0.0.1` (port 47823 if free), opens your browser, and exits; running it again reuses the server that's already up. Protecting a folder starts a background watcher for it (the same one as `rewind watch --daemon`), and the app restarts watchers that die. Closing the browser tab changes nothing; `rewind app stop` stops the server, and watchers keep protecting your folders. With start at login on, protection resumes after a reboot. The app keeps its list of folders in `~/.rewind/registry.json`; each folder's history stays where it always was (`.rewind/` inside it, or `~/.rewind/projects/`).
+
+**Security.** The API only answers requests that carry the token from `~/.rewind/app-token` (readable only by you) in a header, with a `Host` of `127.0.0.1`/`localhost`, and rejects cross-origin POSTs. The folder browser lists folder names only, never file contents. The page has a strict Content-Security-Policy and loads nothing from the internet.
+
+**What was tested.** Everything above was built and tested on Linux: the app's API and every screen are covered by the test suite and a headless-Chromium click-through ([`scripts/ui-smoke.py`](scripts/ui-smoke.py)) that protects a folder, undoes, goes back in time, recovers a file, connects a tool and walks the onboarding, checking the files on disk after each step. The macOS bundle, LaunchAgent, Windows `.vbs`/`.bat`/shortcuts and Startup entry are generated by tested code (their contents are checked in tests), but they have **not been run on macOS or Windows yet**. Reports welcome.
+
+## Quickstart (terminal)
 
 ```sh
 pipx install rewind-cli        # or: uv tool install rewind-cli
@@ -33,7 +88,7 @@ Other ways to install: `uvx rewind-cli` runs it without installing, and there is
 curl -fsSL https://raw.githubusercontent.com/rushi053/rewind/main/install.sh | sh
 ```
 
-(Rewind's own seatbelt flags `curl | sh`. [Read the script](install.sh) first; it is 50 lines.)
+(Rewind's own seatbelt flags `curl | sh`. [Read the script](install.sh) first; it is 75 lines. Set `REWIND_NO_LAUNCHER=1` to skip the app launcher.)
 
 ## Why not just git?
 
@@ -102,20 +157,86 @@ This is a heuristic, not a sandbox. It cannot see inside a script the agent writ
 
 ## Agent integration
 
-| Agent | How | What Rewind does | Status |
+There are three ways in, and they combine:
+
+1. **Hooks** (Claude Code, Codex CLI, Gemini CLI, Cursor): the agent calls Rewind before and after every edit and shell command, so there is a snapshot before each change and the seatbelt can block dangerous commands. Per project (`rewind hook install claude`) or for every project at once (`rewind hook install claude --global`, which writes your user-level config; in folders Rewind doesn't protect the hook does nothing).
+2. **MCP** (Claude Desktop, Cursor, Windsurf, VS Code, Claude Code): the assistant gets Rewind tools it can call when you ask ("undo that", "what changed in the last hour?", "bring back my .env"). See [MCP server](#mcp-server).
+3. **`rewind run -- <command>`** (Aider, OpenCode, Goose, Amp, anything): checkpoint before, watcher during, checkpoint after, recorded as one session.
+
+The app's **Connect AI tools** screen does 1 and 2 with one click each, showing the file and diff first.
+
+| Tool | How | What Rewind does | Status |
 |---|---|---|---|
-| **Claude Code** | `rewind hook install claude` → `.claude/settings.json` (`--local` for `settings.local.json`) | `PreToolUse` and `PostToolUse` on `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash`: snapshot before and after; seatbelt on `Bash` and on `Write` to `.env` (exit 2 + reason on stderr) | Hook JSON follows the documented format; tested by feeding the documented stdin payloads to `rewind hook exec`. Not yet tested against a live Claude Code session in CI. |
-| **Codex CLI** | `rewind hook install codex` → `.codex/hooks.json` | `PreToolUse`/`PostToolUse` on `Bash\|apply_patch`; seatbelt on `Bash` | Per OpenAI's hooks docs. Codex asks you to review and trust new hooks (`/hooks`). Tested with simulated payloads only. |
-| **Gemini CLI** | `rewind hook install gemini` → `.gemini/settings.json` | `BeforeTool`/`AfterTool` on `run_shell_command\|write_file\|replace`; seatbelt on shell commands | Per the Gemini CLI hooks reference. Tested with simulated payloads only. |
-| **Cursor** | `rewind hook install cursor` → `.cursor/hooks.json` | `beforeShellExecution` (seatbelt + snapshot, JSON `permission` response), `afterShellExecution`, `afterFileEdit` | Per Cursor's hooks docs. Cursor has no hook *before* a file edit, so run `rewind watch --daemon` alongside for pre-edit snapshots. Tested with simulated payloads only. |
-| **Aider, OpenCode, Goose, Amp, anything else** | `rewind run -- <command>` | Checkpoint before, polling watcher during, checkpoint after, all recorded as one session | Works with any process; no seatbelt (there is no hook to intercept commands). |
+| **Claude Code** | `rewind hook install claude [--global]` → `.claude/settings.json` (`--local`: `settings.local.json`; `--global`: `~/.claude/settings.json`) | `PreToolUse`/`PostToolUse` on `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash`: snapshot before and after; seatbelt on `Bash` and on `Write` to `.env` (exit 2 + reason on stderr). Also installs the slash commands `/rewind-undo`, `/rewind-log`, `/rewind-checkpoint` in `.claude/commands/` | Hook JSON and command files follow the documented formats; hooks tested by feeding documented stdin payloads to `rewind hook exec`. **Not yet tested in a live Claude Code session**, including the slash commands. |
+| **Codex CLI** | `rewind hook install codex [--global]` → `.codex/hooks.json` or `~/.codex/hooks.json` | `PreToolUse`/`PostToolUse` on `Bash\|apply_patch`; seatbelt on `Bash` | Per OpenAI's hooks docs. Codex asks you to review and trust new hooks (`/hooks`). Simulated payloads only. |
+| **Gemini CLI** | `rewind hook install gemini [--global]` → `.gemini/settings.json` or `~/.gemini/settings.json` | `BeforeTool`/`AfterTool` on `run_shell_command\|write_file\|replace`; seatbelt on shell commands | Per the Gemini CLI hooks reference. Simulated payloads only. |
+| **Cursor** | `rewind hook install cursor [--global]` → `.cursor/hooks.json` or `~/.cursor/hooks.json`; MCP: `rewind mcp install cursor [--global]` | `beforeShellExecution` (seatbelt + snapshot, JSON `permission` response), `afterShellExecution`, `afterFileEdit`; MCP tools | Per Cursor's hooks and MCP docs. Cursor has no hook *before* a file edit, so protect the folder in the app (or run `rewind watch --daemon`) for pre-edit snapshots. Simulated payloads only; MCP config written to the documented format, not tried in Cursor. |
+| **Claude Desktop** | `rewind mcp install claude-desktop` → `claude_desktop_config.json` | MCP tools | Config path and format per the MCP quickstart. Not tried in Claude Desktop (no Linux build to test on). |
+| **Windsurf** | `rewind mcp install windsurf` → `~/.codeium/windsurf/mcp_config.json` | MCP tools | Documented format; not tried in Windsurf. |
+| **VS Code** (agent mode) | `rewind mcp install vscode [--global]` → `.vscode/mcp.json` or the user `mcp.json` | MCP tools | Documented `servers` format; not tried in VS Code. |
+| **Aider, OpenCode, Goose, Amp, anything else** | `rewind run -- <command>` | Checkpoint before, polling watcher during, checkpoint after, all recorded as one session | Works with any process (tested). No seatbelt: there is no hook to intercept commands. |
+
+"Not tried" means the files Rewind writes match each tool's published documentation and are covered by tests, but nobody has yet confirmed the tool picks them up. The MCP server itself is tested over real stdio with JSON-RPC messages shaped like a client's.
 
 `rewind run -- claude` and hooks combine: hook snapshots join the `run` session via the `REWIND_SESSION` environment variable. Hooks fail open: if Rewind itself errors, the agent is never blocked (errors go to `.rewind/hook-errors.log`).
+
+## MCP server
+
+`rewind mcp` is a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio, written with the standard library (JSON-RPC 2.0, newline-delimited). It speaks protocol version `2025-06-18` and negotiates down to `2025-03-26` or `2024-11-05` if the client asks for those. Tools:
+
+| tool | what it does |
+|---|---|
+| `checkpoint(message)` | save a version of every file now |
+| `list_history(limit)` | recent saved versions, newest first, with who changed what |
+| `show_changes(id, diff?, path?)` | files a version changed; `diff: true` adds a unified diff |
+| `undo_last()` | put back the previous version that differs from the current files |
+| `restore(id, paths?)` | restore the whole project or some paths to a version |
+| `recover_deleted(pattern)` | bring back deleted files matching a path or glob, touching nothing else |
+| `check_command(command)` | ask the seatbelt whether a shell command is destructive; runs nothing |
+
+**`undo_last`, `restore` and `recover_deleted` only preview** (what would come back, change, or be removed) unless called with `confirm: true`, and `dry_run: true` always wins. The server's instructions ask the model to show you the preview and get your agreement first. Every applied change saves the current files first, so it can be undone.
+
+Which project? Clients started inside a project (Claude Code, VS Code, Cursor's project config) pass it with the working directory or `--folder ${workspaceFolder}`. Apps like Claude Desktop start servers outside any project; there every tool takes an optional `folder` argument, and if the app protects exactly one folder that one is used.
+
+Set it up with `rewind mcp install <client>` (it backs up the config file first and prints the diff; `--dry-run` only prints), or paste the JSON yourself. `rewind mcp config <client>` prints the snippet with the full path of your `rewind` (GUI apps don't see your shell's PATH, so use the full path, e.g. `/Users/you/.local/bin/rewind`):
+
+**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows), **Cursor** (`~/.cursor/mcp.json`) and **Windsurf** (`~/.codeium/windsurf/mcp_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "rewind": { "command": "/Users/you/.local/bin/rewind", "args": ["mcp"] }
+  }
+}
+```
+
+**Cursor, per project** (`.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "rewind": { "command": "/Users/you/.local/bin/rewind", "args": ["mcp", "--folder", "${workspaceFolder}"] }
+  }
+}
+```
+
+**VS Code** (`.vscode/mcp.json`; note the `servers` key and `type`):
+
+```json
+{
+  "servers": {
+    "rewind": { "type": "stdio", "command": "/Users/you/.local/bin/rewind", "args": ["mcp", "--folder", "${workspaceFolder}"] }
+  }
+}
+```
+
+**Claude Code**: `rewind mcp install claude-code` writes `.mcp.json` in the project (same shape as Claude Desktop's), and `rewind mcp install claude-code --global` runs `claude mcp add --scope user rewind -- <path to rewind> mcp` for you. **Codex CLI**: `codex mcp add rewind -- rewind mcp` (Rewind doesn't edit Codex's TOML config itself).
 
 ## Commands
 
 | | |
 |---|---|
+| `rewind app` / `app status\|stop` / `app --autostart on\|off` / `app install-launcher` | the Rewind app (see above) |
 | `rewind init [--global] [--hooks claude,codex]` | set up the project and take the first snapshot |
 | `rewind run [--name N] -- <cmd>` | run a command as a recorded session |
 | `rewind watch [--daemon]` / `watch status` / `watch stop` | auto-snapshot as files change (polling, debounced) |
@@ -131,14 +252,15 @@ This is a heuristic, not a sandbox. It cannot see inside a script the agent writ
 | `rewind status` / `rewind doctor [--full]` | store info, pending changes, integrity check |
 | `rewind gc [--dry-run]` | apply the retention policy |
 | `rewind guard check\|allow\|rules` | the seatbelt |
-| `rewind hook install\|uninstall\|status <agent>` | agent hooks |
+| `rewind hook install\|uninstall\|status <agent> [--global]` | agent hooks (and Claude Code slash commands) |
+| `rewind mcp` / `mcp install\|uninstall\|config <client> [--global]` | MCP server, and client setup |
 | `rewind config [get\|set\|unset] [key] [value]` | settings |
 
 Snapshot references are numbers (`12` or `#12`), `HEAD`, or `HEAD~2`. Every command that restores files or deletes snapshots shows a preview and asks first; `-y` skips the prompt and `-n/--dry-run` changes nothing. In a non-interactive shell Rewind refuses to change files without `-y`. Output is colored on a TTY and respects `NO_COLOR`.
 
-## Web UI
+## Web UI (technical view)
 
-`rewind ui` serves a single self-contained page on `127.0.0.1` with a random token in the URL, and opens your browser. No CDN, no build step.
+The app's **Timeline** tab embeds this view for each folder. On its own, `rewind ui` serves a single self-contained page on `127.0.0.1` with a random token in the URL, and opens your browser. No CDN, no build step.
 
 <p align="center"><img src="docs/ui-dark.png" alt="Rewind web UI: session timeline, changed files, and a diff of a test file the agent deleted" width="900"></p>
 
@@ -193,7 +315,7 @@ A hook call costs roughly one no-op snapshot. These are single runs on one machi
 
 **What is not restored?** Empty directories, file ownership, extended attributes and timestamps (restored files get a new mtime). Skipped large files and ignored paths are left as they are.
 
-**Windows?** Best effort: the code uses `pathlib` and avoids POSIX-only calls, but it is not tested on Windows yet, and symlinks there need extra privileges.
+**Windows?** Best effort: the code uses `pathlib` and avoids POSIX-only calls, but it is not tested on Windows yet, and symlinks there need extra privileges. The Windows launcher, shortcuts and Startup entry are generated but untested. Desktop notifications are not implemented on Windows (blocked commands still appear in the app's Activity).
 
 **Is the seatbelt a security boundary?** No. It catches common destructive commands from cooperative agents. Use containers or a sandbox if you need isolation.
 
@@ -202,8 +324,9 @@ A hook call costs roughly one no-op snapshot. These are single runs on one machi
 - Native file-system events (FSEvents/inotify) as an optional fast path for `watch`
 - Tree-structured manifests so very large repos store less per snapshot
 - `rewind export <id>` to a tarball, and a read-only `rewind mount`
-- Verified end-to-end tests against live Claude Code, Codex and Gemini CLI sessions
-- Windows CI
+- Verified end-to-end tests against live Claude Code, Codex and Gemini CLI sessions, and the MCP server in Claude Desktop, Cursor, Windsurf and VS Code
+- Run the app launchers, LaunchAgent and Windows shortcuts on real macOS and Windows machines; Windows CI
+- A signed, self-contained macOS app (today `Rewind.app` is a launcher for an installed `rewind`)
 
 ## Contributing
 

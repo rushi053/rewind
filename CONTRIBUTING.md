@@ -11,7 +11,13 @@ pip install -e . pytest
 pytest
 ```
 
-The suite runs in a few seconds. `scripts/disaster-demo.sh` is the end-to-end check CI also runs: it builds a git project, lets a script wreck it under `rewind run`, and verifies `rewind undo --session` restores every file byte-for-byte.
+The suite runs in about 20 seconds. `scripts/disaster-demo.sh` is the end-to-end check CI also runs: it builds a git project, lets a script wreck it under `rewind run`, and verifies `rewind undo --session` restores every file byte-for-byte.
+
+For the app there are three dev-only scripts that need Playwright (`pip install playwright && playwright install chromium`):
+
+- `scripts/ui-smoke.py` clicks through every app flow in headless Chromium and checks the files on disk after each step. Run it after changing `app.html`.
+- `scripts/screenshots.py` regenerates the `docs/app-*.png` screenshots from a demo home built by `scripts/make-app-demo.py` (you can also point `HOME`/`REWIND_HOME` at that demo and run `rewind app` to try the app safely).
+- `scripts/make-icons.py` renders `assets/icon.svg` into the shipped `.icns`, `.ico` and `.png` files.
 
 ## Where things live
 
@@ -24,7 +30,14 @@ The suite runs in a few seconds. `scripts/disaster-demo.sh` is the end-to-end ch
 | `src/rewind_cli/guard.py` | the seatbelt rules |
 | `src/rewind_cli/hooks.py` | hook install/uninstall and `rewind hook exec` |
 | `src/rewind_cli/watch.py` | polling watcher and daemon |
-| `src/rewind_cli/ui.py`, `static/ui.html` | web UI (one self-contained HTML file) |
+| `src/rewind_cli/ui.py`, `static/ui.html` | technical web UI (one self-contained HTML file), also embedded in the app |
+| `src/rewind_cli/app.py`, `static/app.html` | the Rewind app: server, API, lifecycle, supervisor; one self-contained HTML file |
+| `src/rewind_cli/registry.py` | global folder list, app settings, activity feed |
+| `src/rewind_cli/plain.py` | plain-language descriptions of snapshots and restore plans |
+| `src/rewind_cli/integrations.py` | hook and MCP config writers for each AI tool, with backups |
+| `src/rewind_cli/mcp.py` | the MCP server (stdio JSON-RPC) |
+| `src/rewind_cli/launchers.py` | app launchers and start-at-login entries per OS |
+| `src/rewind_cli/notify.py` | desktop notifications |
 | `src/rewind_cli/cli.py` | argument parsing and output |
 
 ## Guidelines

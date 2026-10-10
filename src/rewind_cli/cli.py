@@ -19,6 +19,7 @@ be rolled back in one command.
   rewind <command> [options]
 
 {start}
+  app                  Open the Rewind app: protect folders, undo, go back in time
   init                 Set up Rewind here and offer to install agent hooks
   run -- <cmd>         Wrap an agent session: checkpoint, watch, checkpoint
   hook install <agent> Snapshot before every edit/command (claude, codex, gemini, cursor)
@@ -37,6 +38,7 @@ be rolled back in one command.
   diff [id] [id] [path] Colored diff between snapshots or against your files
   status               Store size, latest snapshot, pending changes
   ui                   Local web UI with timeline, diffs and one-click restore
+  mcp                  MCP server for Claude Desktop, Cursor, Windsurf, VS Code...
 
 {other}
   snap [-m msg]        Take a checkpoint now
@@ -162,6 +164,12 @@ def cmd_init(args):
     meta, files, _ = repo.capture(message="initial snapshot", trigger="init")
     took = time.time() - t0
     total = sum(e.get("s", 0) for e in files.values())
+    try:
+        from . import registry
+
+        registry.register(repo.root, protected=False, source="cli")
+    except Exception:
+        pass
     print("%s Initialized Rewind in %s" % (term.green(_check()), repo.root))
     print("  store     %s" % repo.store)
     print("  snapshot  #%d  %d files, %s  (%.2fs)" % (meta["id"] if meta else 0, len(files), term.size(total), took))
@@ -218,7 +226,10 @@ def cmd_watch(args):
 
     repo = _repo()
     action = args.action or ("daemon" if args.daemon else "foreground")
+    from .registry import note_watch_state
+
     if action == "stop":
+        note_watch_state(repo.root, False)
         pid = stop_daemon(repo)
         print("Stopped watcher (pid %d)." % pid if pid else "No watcher running.")
         return 0
@@ -228,6 +239,7 @@ def cmd_watch(args):
         return 0
     if action in ("start", "daemon") and not args.foreground:
         pid = start_daemon(repo)
+        note_watch_state(repo.root, True)
         print("%s Watcher started in the background (pid %d). Stop it with `rewind watch stop`." % (term.green(_check()), pid))
         return 0
     import signal
@@ -332,7 +344,15 @@ def cmd_hook(args):
         if errtext:
             sys.stderr.write(errtext)
         return code
-    repo = _repo()
+    if getattr(args, "use_global", False):
+        from pathlib import Path
+
+        class _Home:
+            root = Path.home()
+
+        repo = _Home()
+    else:
+        repo = _repo()
     if args.action == "status":
         for agent in hooks.AGENTS:
             path = hooks.installed(repo.root, agent)
@@ -348,7 +368,12 @@ def cmd_hook(args):
     for agent in agents:
         if args.action == "install":
             path = hooks.install(repo.root, agent, local=args.local)
-            print("%s %s hooks written to %s" % (term.green(_check()), agent, os.path.relpath(str(path), str(repo.root))))
+            shown = str(path) if getattr(args, "use_global", False) else os.path.relpath(str(path), str(repo.root))
+            print("%s %s hooks written to %s" % (term.green(_check()), agent, shown))
+            if agent == "claude":
+                print(term.dim("  slash commands: /rewind-undo, /rewind-log, /rewind-checkpoint (%s)" % (
+                    hooks.commands_dir(repo.root) if getattr(args, "use_global", False)
+                    else os.path.relpath(str(hooks.commands_dir(repo.root)), str(repo.root)))))
             if agent == "codex":
                 print(term.dim("  Codex asks you to review new hooks: open /hooks in Codex and trust them."))
         elif args.action == "uninstall":
@@ -667,6 +692,113 @@ def cmd_ui(args):
     return serve(_repo(), port=args.port, open_browser=not args.no_open)
 
 
+def cmd_app(args):
+    from . import app as app_mod
+
+    if args.autostart:
+        from . import launchers
+
+        res = launchers.set_autostart(args.autostart == "on")
+        state = "on" if res["enabled"] else "off"
+        print("%s Start at login is %s (%s)" % (term.green(_check()), state, res["path"]))
+        for note in res["notes"]:
+            print(term.dim("  " + note))
+        return 0
+    action = args.action or "open"
+    if action == "install-launcher":
+        from . import launchers
+
+        res = launchers.install_launcher(dest=args.dest)
+        for f in res["files"]:
+            print("%s %s" % (term.green(_check()), f))
+        for note in res["notes"]:
+            print("  " + note)
+        return 0
+    if action == "stop":
+        pid = app_mod.stop()
+        print("Stopped the Rewind app (pid %d). Folder protection keeps running." % pid if pid else "The Rewind app is not running.")
+        return 0
+    if action == "status":
+        info = app_mod.running()
+        if not info:
+            print("The Rewind app is not running. Start it with `rewind app`.")
+            return 1
+        print("Rewind app running (pid %d) at %s" % (info["pid"], info["url"]))
+        return 0
+    if args.foreground:
+        return app_mod.serve_foreground(port=args.port, open_browser=not args.no_open)
+    info = app_mod.ensure_running(port=args.port)
+    print("Rewind is running at %s" % info["url"])
+    if not args.no_open:
+        import webbrowser
+
+        webbrowser.open(info["url"])
+    return 0
+
+
+MCP_CLIENTS = ("claude-desktop", "cursor", "windsurf", "vscode", "claude-code")
+
+
+def _mcp_scope_folder(args, client):
+    from . import integrations
+
+    supported = integrations.scopes(client, "mcp")
+    if args.use_global or supported == ["global"]:
+        if "global" not in supported:
+            raise RewindError("%s has no user-level MCP config" % client)
+        return "global", None
+    folder = args.folder
+    if not folder:
+        try:
+            folder = str(_repo().root)
+        except NotInitialized:
+            folder = os.getcwd()
+    return "folder", os.path.abspath(folder)
+
+
+def cmd_mcp(args):
+    from . import integrations
+
+    action = args.action
+    if action is None:
+        from .mcp import serve
+
+        return serve(folder=args.folder)
+    if action in ("install", "uninstall", "config"):
+        if not args.client:
+            raise RewindError("which client? one of: %s" % ", ".join(MCP_CLIENTS))
+        client = args.client
+        if client not in MCP_CLIENTS:
+            raise RewindError("unknown client %r (choose from %s)" % (client, ", ".join(MCP_CLIENTS)))
+        scope, folder = _mcp_scope_folder(args, client)
+        if action == "config":
+            print(integrations.manual_snippet(client, scope), end="")
+            return 0
+        p = integrations.plan(client, "mcp", scope, folder, "connect" if action == "install" else "disconnect")
+        if p.command:
+            print("%s %s" % (term.bold("Runs:"), " ".join(p.command)))
+        else:
+            print("%s %s" % (term.bold("File:"), p.path))
+            for line in p.diff():
+                color = term.green if line.startswith("+") else term.red if line.startswith("-") else term.dim
+                print("  " + color(line))
+        if not p.changed:
+            print("Already %s; nothing to do." % ("set up" if action == "install" else "removed"))
+            return 0
+        if args.dry_run:
+            print(term.dim("(dry run: nothing was changed)"))
+            return 0
+        res = integrations.apply(p)
+        if res.get("backup"):
+            print(term.dim("  backup: %s" % res["backup"]))
+        print("%s Rewind MCP server %s %s." % (term.green(_check()), "added to" if action == "install" else "removed from",
+                                               client))
+        if action == "install":
+            print(term.dim("  Restart %s to pick it up." % client))
+        return 0
+    raise RewindError("unknown mcp action %r" % action)
+
+
 def cmd_gc(args):
     from .gc import run_gc
 
@@ -922,10 +1054,12 @@ def build_parser():
     p.add_argument("command", nargs=argparse.REMAINDER, help="the command to run, after --")
     p.set_defaults(func=cmd_run)
 
-    p = _sub(subs, "hook", "Install agent hooks (claude, codex, gemini, cursor)", "  rewind hook install claude\n  rewind hook install claude --local   # .claude/settings.local.json\n  rewind hook status\n  rewind hook uninstall cursor")
+    p = _sub(subs, "hook", "Install agent hooks (claude, codex, gemini, cursor)", "  rewind hook install claude\n  rewind hook install claude --local   # .claude/settings.local.json\n  rewind hook install claude --global  # ~/.claude/settings.json, all projects\n  rewind hook status\n  rewind hook uninstall cursor")
     p.add_argument("action", choices=["install", "uninstall", "status", "exec"])
     p.add_argument("rest", nargs="*", help="agent name(s), or 'all'")
     p.add_argument("--local", action="store_true", help="Claude Code: write .claude/settings.local.json")
+    p.add_argument("--global", dest="use_global", action="store_true",
+                   help="user-level config (~/.claude, ~/.codex, ~/.gemini, ~/.cursor): every project, no-op where Rewind isn't set up")
     p.set_defaults(func=cmd_hook)
 
     p = _sub(subs, "guard", "The seatbelt: detect destructive commands", "  rewind guard check \"git reset --hard\"\n  rewind guard allow \"git clean -fdx build/*\"\n  rewind guard rules")
@@ -985,6 +1119,32 @@ def build_parser():
     p.add_argument("--port", type=int, default=0)
     p.add_argument("--no-open", action="store_true", help="don't open a browser")
     p.set_defaults(func=cmd_ui)
+
+    p = _sub(subs, "app", "Open the Rewind app (protect folders, undo, go back in time)",
+             "  rewind app                   # start in the background and open the browser\n"
+             "  rewind app status | stop\n"
+             "  rewind app --autostart on    # keep protection running after reboot\n"
+             "  rewind app install-launcher  # add Rewind to Applications / your app menu")
+    p.add_argument("action", nargs="?", choices=["open", "stop", "status", "install-launcher"])
+    p.add_argument("--no-open", action="store_true", help="don't open a browser")
+    p.add_argument("--foreground", action="store_true", help="run the server in this process")
+    p.add_argument("--port", type=int, default=0, help="port (default 47823, or a free one)")
+    p.add_argument("--autostart", choices=["on", "off"], help="start Rewind when you log in")
+    p.add_argument("--dest", help="install-launcher: write the launcher here instead")
+    p.set_defaults(func=cmd_app)
+
+    p = _sub(subs, "mcp", "Model Context Protocol server (stdio) and client setup",
+             "  rewind mcp                          # run the server (clients start this)\n"
+             "  rewind mcp install claude-desktop\n"
+             "  rewind mcp install cursor --global\n"
+             "  rewind mcp install vscode           # .vscode/mcp.json in this project\n"
+             "  rewind mcp config windsurf          # print the JSON to paste by hand")
+    p.add_argument("action", nargs="?", choices=["install", "uninstall", "config"])
+    p.add_argument("client", nargs="?", help="claude-desktop, cursor, windsurf, vscode, claude-code")
+    p.add_argument("--folder", help="project folder (server: default project; install: where to write)")
+    p.add_argument("--global", dest="use_global", action="store_true", help="user-level config instead of this project")
+    p.add_argument("-n", "--dry-run", action="store_true", help="show the change, write nothing")
+    p.set_defaults(func=cmd_mcp)
 
     p = _sub(subs, "gc", "Apply the retention policy and delete unreferenced data", "  rewind gc --dry-run")
     p.add_argument("-n", "--dry-run", action="store_true", help="show what would be deleted")

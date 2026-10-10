@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rewind</title>
+<link rel="icon" href="/favicon.png">
+<style>
+:root {
+  --bg: #f7f7f8; --surface: #ffffff; --surface-2: #fbfbfc; --hover: #f3f3f5; --sel: #ececf1;
+  --border: #e7e7eb; --border-2: #dcdce2; --text: #18181b; --muted: #63636e; --faint: #9a9aa5;
+  --accent: #4f52d9; --accent-2: #4346c8; --accent-bg: rgba(79,82,217,.08); --accent-ring: rgba(79,82,217,.22);
+  --green: #13804c; --green-bg: rgba(19,128,76,.08); --amber: #a0620a; --amber-bg: rgba(196,124,14,.10);
+  --red: #c4323a; --red-bg: rgba(196,50,58,.07); --blue: #2563c9; --blue-bg: rgba(37,99,201,.08);
+  --shadow-sm: 0 1px 2px rgba(16,16,24,.04); --shadow: 0 12px 40px rgba(16,16,32,.14), 0 2px 6px rgba(16,16,32,.05);
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #0c0c0e; --surface: #131316; --surface-2: #17171b; --hover: #1c1c21; --sel: #23232a;
+  --border: #232329; --border-2: #2e2e36; --text: #ececef; --muted: #9b9ba6; --faint: #62626d;
+  --accent: #8b8ff8; --accent-2: #9da0fa; --accent-bg: rgba(139,143,248,.12); --accent-ring: rgba(139,143,248,.28);
+  --green: #4fc88f; --green-bg: rgba(79,200,143,.11); --amber: #e2b85c; --amber-bg: rgba(226,184,92,.11);
+  --red: #f0646a; --red-bg: rgba(240,100,106,.11); --blue: #6ea8ff; --blue-bg: rgba(110,168,255,.11);
+  --shadow-sm: none; --shadow: 0 16px 50px rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, .mono { font-family: var(--mono); font-size: 12.5px; }
+.shell { display: grid; grid-template-columns: 248px 1fr; height: 100vh; }
+.shell.bare { grid-template-columns: 1fr; }
+.shell.bare aside { display: none; }
+
+/* sidebar */
+aside { border-right: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 18px 18px 14px; font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
+.brand img { width: 24px; height: 24px; border-radius: 6px; }
+.nav { padding: 4px 10px; display: flex; flex-direction: column; gap: 1px; }
+.nav a { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; color: var(--muted); font-weight: 500; text-decoration: none; }
+.nav a:hover { background: var(--hover); color: var(--text); }
+.nav a.on { background: var(--sel); color: var(--text); }
+.nav .count { margin-left: auto; font-size: 11.5px; color: var(--faint); font-weight: 500; }
+.side-label { padding: 18px 20px 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.side-folders { flex: 1; overflow: auto; padding: 0 10px 10px; }
+.side-folders a { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 8px; color: var(--text); text-decoration: none; font-size: 13.5px; }
+.side-folders a:hover { background: var(--hover); }
+.side-folders a.on { background: var(--sel); }
+.side-folders .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-foot { border-top: 1px solid var(--border); padding: 10px 12px; display: flex; align-items: center; gap: 8px; color: var(--faint); font-size: 12px; }
+
+/* main */
+main { overflow: auto; min-width: 0; }
+.page { max-width: 940px; margin: 0 auto; padding: 36px 44px 80px; }
+.page.wide { max-width: none; }
+.page-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 26px; }
+.page-head .grow { flex: 1; min-width: 0; }
+h1 { font-size: 24px; line-height: 1.25; letter-spacing: -.02em; font-weight: 650; margin: 0; }
+h2 { font-size: 15px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
+.sub { color: var(--muted); margin: 6px 0 0; max-width: 640px; }
+.crumb { font-size: 13px; color: var(--muted); margin-bottom: 10px; display: flex; gap: 6px; align-items: center; }
+.crumb a { color: var(--muted); }
+.section { margin-top: 34px; }
+.section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.section-head .grow { flex: 1; }
+.grow { flex: 1; min-width: 0; }
+.muted { color: var(--muted); } .faint { color: var(--faint); }
+.small { font-size: 12.5px; }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--surface); cursor: pointer; font-weight: 500; white-space: nowrap; box-shadow: var(--shadow-sm); transition: background .12s, border-color .12s, box-shadow .12s; }
+.btn:hover { background: var(--hover); }
+.btn:focus-visible, .chip-btn:focus-visible, .switch:focus-visible, .tab:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+.btn.primary:hover { background: var(--accent-2); }
+.btn.danger { background: var(--red); border-color: transparent; color: #fff; }
+.btn.ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--muted); }
+.btn.ghost:hover { background: var(--hover); color: var(--text); }
+.btn.sm { height: 28px; padding: 0 10px; font-size: 13px; border-radius: 7px; }
+.btn.lg { height: 40px; padding: 0 18px; font-size: 14.5px; }
+.btn:disabled { opacity: .5; cursor: default; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-weight: 500; }
+.link-btn:hover { text-decoration: underline; }
+.link-btn.muted { color: var(--muted); }
+
+/* cards & lists */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-sm); }
+.card-pad { padding: 20px; }
+.list > .row { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-top: 1px solid var(--border); }
+.list > .row:first-child { border-top: 0; }
+.list > a.row { color: inherit; text-decoration: none; }
+.list > a.row:hover, .list > .row.click:hover { background: var(--surface-2); cursor: pointer; }
+.row .grow { flex: 1; min-width: 0; }
+.row .title { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .meta { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .path { color: var(--faint); font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ficon { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 9px; background: var(--hover); color: var(--muted); }
+.ficon.accent { background: var(--accent-bg); color: var(--accent); }
+.ficon.green { background: var(--green-bg); color: var(--green); }
+.ficon.red { background: var(--red-bg); color: var(--red); }
+.ficon.amber { background: var(--amber-bg); color: var(--amber); }
+.ficon.blue { background: var(--blue-bg); color: var(--blue); }
+.ficon.sm { width: 28px; height: 28px; border-radius: 7px; }
+.empty { padding: 44px 24px; text-align: center; color: var(--muted); }
+.empty .big { color: var(--text); font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+
+/* pills */
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 550; white-space: nowrap; background: var(--hover); color: var(--muted); }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.nodot::before { display: none; }
+.pill.protected, .pill.ok { background: var(--green-bg); color: var(--green); }
+.pill.starting, .pill.preparing, .pill.warn { background: var(--amber-bg); color: var(--amber); }
+.pill.missing, .pill.error, .pill.bad, .pill.not-set-up { background: var(--red-bg); color: var(--red); }
+.pill.preparing::before, .pill.starting::before { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.badge { display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 6px; font-size: 11.5px; font-weight: 550; background: var(--hover); color: var(--muted); white-space: nowrap; }
+.badge.accent { background: var(--accent-bg); color: var(--accent); }
+.badge.green { background: var(--green-bg); color: var(--green); }
+
+/* switch */
+.switch { position: relative; width: 38px; height: 22px; border-radius: 999px; border: 0; background: var(--border-2); cursor: pointer; flex: none; transition: background .15s; padding: 0; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+.switch.on { background: var(--green); }
+.switch.on::after { transform: translateX(16px); }
+.switch:disabled { opacity: .5; cursor: default; }
+
+/* tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 22px 0 26px; }
+.tab { position: relative; height: 38px; padding: 0 12px; border: 0; background: none; color: var(--muted); font-weight: 500; cursor: pointer; border-radius: 6px 6px 0 0; display: inline-flex; align-items: center; gap: 7px; text-decoration: none; }
+.tab:hover { color: var(--text); text-decoration: none; }
+.tab.on { color: var(--text); }
+.tab.on::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; background: var(--text); border-radius: 2px; }
+.tab .n { font-size: 11.5px; color: var(--faint); }
+
+/* action cards */
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.action { padding: 22px; display: flex; flex-direction: column; gap: 12px; }
+.action .head { display: flex; align-items: center; gap: 12px; }
+.action h2 { font-size: 16px; }
+.action .desc { color: var(--muted); min-height: 42px; }
+.action .desc b { color: var(--text); font-weight: 550; }
+.action .foot { margin-top: auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip-btn { height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-2); background: var(--surface); cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text); }
+.chip-btn:hover { background: var(--hover); }
+.chip-btn.on { background: var(--text); color: var(--surface); border-color: var(--text); }
+.chip-btn:disabled { opacity: .45; cursor: default; }
+.callout { display: flex; align-items: center; gap: 14px; padding: 14px 18px; }
+.callout .grow { flex: 1; min-width: 0; }
+.banner { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; background: var(--red-bg); color: var(--text); margin-bottom: 22px; border: 1px solid transparent; }
+.banner .ic { color: var(--red); display: flex; }
+.banner .grow { flex: 1; min-width: 0; }
+.banner code { background: transparent; }
+
+/* timeline items */
+.feed .row { align-items: flex-start; }
+.feed .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex: none; background: var(--faint); }
+.dot.save { background: var(--accent); } .dot.blocked { background: var(--red); } .dot.restore, .dot.safety { background: var(--blue); } .dot.warning { background: var(--amber); }
+.feed .when { color: var(--faint); font-size: 12.5px; white-space: nowrap; margin-left: 12px; }
+.files-inline { font-family: var(--mono); font-size: 12px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* forms */
+.input { height: 36px; width: 100%; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-2); background: var(--surface); outline: none; }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.input.mono { font-family: var(--mono); font-size: 13px; }
+select.input { padding-right: 28px; }
+.field { display: flex; gap: 8px; }
+.radio-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.radio-card { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid var(--border-2); border-radius: 10px; cursor: pointer; background: var(--surface); text-align: left; }
+.radio-card:hover { border-color: var(--faint); }
+.radio-card.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.radio-card .rc { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--border-2); flex: none; margin-top: 2px; display: grid; place-items: center; }
+.radio-card.on .rc { border-color: var(--accent); }
+.radio-card.on .rc::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.radio-card .t { font-weight: 600; }
+.radio-card .d { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.setting { display: flex; align-items: center; gap: 18px; padding: 18px 20px; border-top: 1px solid var(--border); }
+.setting:first-child { border-top: 0; }
+.setting .grow { flex: 1; min-width: 0; }
+.setting .t { font-weight: 550; }
+.setting .d { color: var(--muted); font-size: 13px; margin-top: 2px; }
+details.more { margin-top: 14px; }
+details.more > summary { cursor: pointer; color: var(--muted); font-size: 13px; list-style: none; display: inline-flex; align-items: center; gap: 6px; user-select: none; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::before { content: "›"; display: inline-block; transition: transform .15s; font-size: 15px; line-height: 1; }
+details.more[open] > summary::before { transform: rotate(90deg); }
+.kv { display: grid; grid-template-columns: 160px 1fr; gap: 8px 16px; margin-top: 12px; font-size: 13px; }
+.kv .k { color: var(--muted); }
+.kv .v { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+
+/* picker */
+.picker .places { display: flex; flex-wrap: wrap; gap: 8px; }
+.proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.proj { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer; text-align: left; min-width: 0; }
+.proj:hover { border-color: var(--border-2); background: var(--surface-2); }
+.proj .nm { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj .pp { font-family: var(--mono); font-size: 11px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.browser { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.crumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: 13px; }
+.crumbs button { border: 0; background: none; padding: 2px 6px; border-radius: 5px; cursor: pointer; color: var(--muted); }
+.crumbs button:hover { background: var(--hover); color: var(--text); }
+.crumbs button:last-child { color: var(--text); font-weight: 600; }
+.crumbs .sep { color: var(--faint); }
+.dirs { max-height: 300px; overflow: auto; }
+.dir { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 14px; border: 0; background: none; cursor: pointer; text-align: left; border-top: 1px solid var(--border); }
+.dir:first-child { border-top: 0; }
+.dir:hover { background: var(--surface-2); }
+.dir .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dir .chev { color: var(--faint); }
+.pickbar { position: sticky; bottom: 16px; z-index: 5; display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-top: 14px; border: 1px solid var(--border-2); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+.pickbar .grow { flex: 1; min-width: 0; }
+.check-msg { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.check-msg.ok { color: var(--green); } .check-msg.bad { color: var(--red); } .check-msg.warn { color: var(--amber); }
+
+/* go back */
+.slider-wrap { padding: 6px 2px 0; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.slider-ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--faint); margin-top: 2px; }
+.when-big { font-size: 20px; font-weight: 650; letter-spacing: -.01em; }
+.preview { margin-top: 16px; padding: 16px 18px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+.preview .sentence { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.stats3 { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.stat { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 7px; font-size: 13px; font-weight: 550; }
+.stat.back { background: var(--green-bg); color: var(--green); }
+.stat.chg { background: var(--amber-bg); color: var(--amber); }
+.stat.rm { background: var(--red-bg); color: var(--red); }
+.flist { margin: 8px 0 0; padding: 0; list-style: none; max-height: 180px; overflow: auto; }
+.flist li { font-family: var(--mono); font-size: 12px; padding: 3px 0; color: var(--muted); overflow-wrap: anywhere; }
+.flist .lbl { font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--text); margin-top: 10px; }
+.reassure { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-size: 13px; margin-top: 14px; }
+.reassure svg { flex: none; margin-top: 2px; color: var(--green); }
+.spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border-2); border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* deleted */
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.search { position: relative; flex: 1; max-width: 360px; }
+.search svg { position: absolute; left: 11px; top: 10px; color: var(--faint); }
+.search .input { padding-left: 34px; }
+.cb { width: 16px; height: 16px; accent-color: var(--accent); flex: none; cursor: pointer; }
+label.inline { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; cursor: pointer; user-select: none; }
+
+/* tools */
+.tool { padding: 0; overflow: hidden; }
+.tool-head { display: flex; align-items: center; gap: 14px; padding: 16px 20px; }
+.avatar { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #fff; flex: none; letter-spacing: -.02em; }
+.integ { display: flex; align-items: center; gap: 16px; padding: 14px 20px 14px 70px; border-top: 1px solid var(--border); }
+.integ .grow { flex: 1; min-width: 0; }
+.integ .t { font-weight: 550; }
+.integ .d { color: var(--muted); font-size: 13px; }
+.integ .p { font-family: var(--mono); font-size: 11.5px; color: var(--faint); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.connected { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-weight: 550; font-size: 13px; }
+.scope-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.scope-bar select { width: auto; min-width: 220px; }
+.diff { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); font: 12px/1.6 var(--mono); max-height: 260px; overflow: auto; padding: 8px 0; }
+.diff div { padding: 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.diff .a { background: var(--green-bg); color: var(--green); }
+.diff .d { background: var(--red-bg); color: var(--red); }
+.diff .h { color: var(--faint); }
+.pathbox { font-family: var(--mono); font-size: 12.5px; padding: 9px 12px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); overflow-wrap: anywhere; color: var(--text); }
+
+/* onboarding */
+.welcome { max-width: 760px; margin: 0 auto; padding: 56px 32px 80px; }
+.welcome-top { text-align: center; margin-bottom: 30px; }
+.welcome-top img { width: 56px; height: 56px; border-radius: 14px; box-shadow: var(--shadow); }
+.welcome-top h1 { font-size: 28px; margin-top: 18px; }
+.welcome-top p { color: var(--muted); font-size: 15.5px; margin: 8px auto 0; max-width: 520px; }
+.steps { display: flex; justify-content: center; gap: 8px; margin-bottom: 26px; flex-wrap: wrap; }
+.step { display: flex; align-items: center; gap: 8px; color: var(--faint); font-size: 13px; font-weight: 550; }
+.step .n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--border-2); font-size: 12px; }
+.step.on { color: var(--text); } .step.on .n { border-color: var(--accent); color: var(--accent); }
+.step.done { color: var(--muted); } .step.done .n { background: var(--green); border-color: var(--green); color: #fff; }
+.step-line { width: 36px; height: 1px; background: var(--border-2); align-self: center; }
+.done-hero { text-align: center; padding: 30px 20px 10px; }
+.done-hero .ok { width: 52px; height: 52px; border-radius: 50%; background: var(--green-bg); color: var(--green); display: grid; place-items: center; margin: 0 auto 16px; }
+.tips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 22px; }
+.tip { padding: 16px; }
+.tip .t { font-weight: 600; margin: 10px 0 4px; }
+.tip .d { color: var(--muted); font-size: 13px; }
+
+/* modal & toast */
+.modal-bg { position: fixed; inset: 0; background: rgba(12,12,20,.38); display: none; align-items: flex-start; justify-content: center; padding: 9vh 16px 16px; z-index: 50; overflow: auto; }
+:root[data-theme="dark"] .modal-bg { background: rgba(0,0,0,.6); }
+.modal-bg.open { display: flex; }
+.modal { width: min(560px, 100%); background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); animation: pop .16s ease-out; }
+.modal.wide { width: min(660px, 100%); }
+@keyframes pop { from { transform: translateY(8px) scale(.985); opacity: 0; } to { transform: none; opacity: 1; } }
+.modal .m-head { padding: 20px 22px 0; }
+.modal .m-head h2 { font-size: 17px; }
+.modal .m-head .sub { margin-top: 4px; }
+.modal .m-body { padding: 16px 22px 6px; }
+.modal .m-foot { display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 16px 22px 20px; }
+.modal .m-foot .grow { flex: 1; }
+.toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(16px); opacity: 0; background: var(--text); color: var(--surface); border-radius: 10px; padding: 11px 16px; box-shadow: var(--shadow); transition: all .2s; z-index: 60; max-width: min(560px, 92vw); font-size: 13.5px; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+.icon { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.icon.lg { width: 18px; height: 18px; }
+.icon.xl { width: 24px; height: 24px; }
+iframe.timeline { width: 100%; height: calc(100vh - 230px); min-height: 480px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+@media (max-width: 860px) {
+  .shell { grid-template-columns: 1fr; } aside { display: none; }
+  .actions, .radio-cards, .tips { grid-template-columns: 1fr; }
+  .page { padding: 24px 18px 60px; }
+  .integ { padding-left: 20px; }
+}
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <aside>
+    <div class="brand"><img src="/favicon.png" alt="">Rewind</div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-label">Protected folders</div>
+    <div class="side-folders" id="sideFolders"></div>
+    <div class="side-foot"><span id="ver"></span><span style="flex:1"></span><button class="btn ghost sm" id="themeBtn" title="Light / dark"></button></div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+"use strict";
+const TOKEN = new URLSearchParams(location.search).get("t") || "";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const S = { state: null, route: [], timer: null, tools: null };
+
+// ------------------------------------------------------------------ icons
+const P = {
+  folder: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/>',
+  shield: '<path d="M12 3 5 6v5.5c0 4.3 3 8 7 9.5 4-1.5 7-5.2 7-9.5V6z"/>',
+  shieldCheck: '<path d="M12 3 5 6v5.5c0 4.3 3 8 7 9.5 4-1.5 7-5.2 7-9.5V6z"/><path d="m9 12 2 2 4-4"/>',
+  shieldX: '<path d="M12 3 5 6v5.5c0 4.3 3 8 7 9.5 4-1.5 7-5.2 7-9.5V6z"/><path d="m10 10 4 4m0-4-4 4"/>',
+  plug: '<path d="M9 3v5m6-5v5M7 8h10v3a5 5 0 0 1-10 0zM12 16v5"/>',
+  pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>',
+  fileUp: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 18v-6m-3 3 3-3 3 3"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+  trash: '<path d="M4 7h16M10 11v6m4-6v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  chev: '<path d="m9 6 6 6-6 6"/>',
+  check: '<path d="m5 12 5 5L20 7"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.3-1.4M17.7 6.3l1.4-1.4"/>',
+  alert: '<path d="M12 3 2 20h20z"/><path d="M12 10v4m0 3h.01"/>',
+  pause: '<path d="M9 5v14m6-14v14"/>',
+  terminal: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="m7.5 9.5 3 2.5-3 2.5M13 15h4"/>',
+  sparkle: '<path d="M12 3v4m0 10v4M3 12h4m10 0h4M6 6l2.5 2.5m7 7L18 18M6 18l2.5-2.5m7-7L18 6"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  broom: '<path d="M14 4 20 10M4 20l7-7m-2-2 4 4-3 6-7-7z"/>',
+  arrowLeft: '<path d="M19 12H5m6-6-6 6 6 6"/>',
+  layers: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+};
+const ic = (name, cls = "") => `<svg class="icon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[name] || ""}</svg>`;
+
+// ------------------------------------------------------------------ utils
+async function api(path, body) {
+  const opts = { headers: { "X-Rewind-Token": TOKEN } };
+  if (body !== undefined) { opts.method = "POST"; opts.body = JSON.stringify(body); opts.headers["Content-Type"] = "application/json"; }
+  const res = await fetch(path, opts);
+  const json = await res.json().catch(() => ({ error: "Rewind sent an unexpected response." }));
+  if (!res.ok) { const e = new Error(json.error || res.statusText); e.status = res.status; throw e; }
+  return json;
+}
+function size(n) { n = n || 0; if (n < 1024) return n + " B"; if (n < 1048576) return (n / 1024).toFixed(1) + " KB"; if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB"; return (n / 1073741824).toFixed(2) + " GB"; }
+function ago(ts) {
+  if (!ts) return "never";
+  const d = Math.max(0, Date.now() / 1000 - ts);
+  if (d < 45) return "just now";
+  if (d < 3600) { const m = Math.max(1, Math.round(d / 60)); return m + (m === 1 ? " minute ago" : " minutes ago"); }
+  if (d < 86400) { const h = Math.round(d / 3600); return h + (h === 1 ? " hour ago" : " hours ago"); }
+  const days = Math.round(d / 86400); return days === 1 ? "yesterday" : days + " days ago";
+}
+function clock(ts) { return new Date(ts * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
+function dayLabel(ts) {
+  const d = new Date(ts * 1000), now = new Date(); const y = new Date(); y.setDate(now.getDate() - 1);
+  if (d.toDateString() === now.toDateString()) return "Today";
+  if (d.toDateString() === y.toDateString()) return "Yesterday";
+  return d.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+}
+function whenLong(ts) { const dl = dayLabel(ts); return (dl === "Today" || dl === "Yesterday" ? dl : dl) + " at " + clock(ts); }
+function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
+function splitPath(p) { const i = p.lastIndexOf("/"); return i < 0 ? ["", p] : [p.slice(0, i + 1), p.slice(i + 1)]; }
+function tildify(p) { const h = S.state && S.state.home; return h && p && (p === h || p.startsWith(h + "/")) ? "~" + p.slice(h.length) : p; }
+const STATE_LABEL = { protected: "Protected", paused: "Paused", starting: "Starting…", preparing: "Setting up…", missing: "Folder not found", "not-set-up": "Not set up", error: "Problem" };
+function pill(f) { const st = f.job && f.job.state === "error" ? "error" : f.state; return `<span class="pill ${st}">${STATE_LABEL[st] || st}</span>`; }
+function isOn(f) { return !!f.protected || f.state === "protected"; }
+
+let toastTimer;
+function toast(text) { const t = $("#toast"); t.textContent = text; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 4200); }
+function fail(e) { toast(e && e.message ? e.message : String(e)); }
+
+// modal: returns a controller
+let modalClose = null;
+function openModal(html, { wide = false, onClose } = {}) {
+  const m = $("#modal"); m.className = "modal" + (wide ? " wide" : ""); m.innerHTML = html;
+  $("#modalBg").classList.add("open");
+  modalClose = () => { $("#modalBg").classList.remove("open"); modalClose = null; if (onClose) onClose(); };
+  setTimeout(() => { const f = m.querySelector("[autofocus], .btn.primary, .btn.danger"); if (f) f.focus(); }, 40);
+  return m;
+}
+function closeModal() { if (modalClose) modalClose(); }
+$("#modalBg").addEventListener("mousedown", (e) => { if (e.target.id === "modalBg") closeModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && modalClose) closeModal(); });
+function confirmModal({ title, body, ok = "Confirm", danger = false }) {
+  return new Promise((resolve) => {
+    let done = false;
+    const m = openModal(`<div class="m-head"><h2>${esc(title)}</h2></div><div class="m-body">${body}</div>
+      <div class="m-foot"><button class="btn" data-x>Cancel</button><button class="btn ${danger ? "danger" : "primary"}" data-ok>${esc(ok)}</button></div>`,
+      { onClose: () => { if (!done) resolve(false); } });
+    m.querySelector("[data-x]").onclick = () => closeModal();
+    m.querySelector("[data-ok]").onclick = () => { done = true; const r = { ok: true, el: m }; resolve(r); closeModal(); };
+  });
+}
+
+// ------------------------------------------------------------------ theme
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t; localStorage.setItem("rewind.theme", t);
+  $("#themeBtn").innerHTML = ic(t === "dark" ? "sun" : "moon");
+  $$("iframe").forEach(f => { try { f.contentWindow.postMessage({ theme: t }, location.origin); } catch (e) {} });
+}
+applyTheme(localStorage.getItem("rewind.theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+$("#themeBtn").onclick = () => applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+
+// ------------------------------------------------------------------ chrome
+async function loadState() { S.state = await api("/api/state"); renderChrome(); return S.state; }
+function folderById(id) { return (S.state.folders || []).find(f => f.id === id); }
+function renderChrome() {
+  const r = S.route[0] || "";
+  const folders = S.state.folders || [];
+  const links = [["", "folder", "Folders", folders.length || ""], ["connect", "plug", "Connect AI tools", ""], ["activity", "pulse", "Activity", ""], ["settings", "gear", "Settings", ""]];
+  $("#nav").innerHTML = links.map(([k, i, label, n]) => `<a href="#/${k}" class="${(r === k || (k === "" && r === "add")) ? "on" : ""}">${ic(i)}${label}${n !== "" ? `<span class="count">${n}</span>` : ""}</a>`).join("");
+  $("#sideFolders").innerHTML = folders.length ? folders.map(f => `<a href="#/f/${f.id}" class="${r === "f" && S.route[1] === f.id ? "on" : ""}" title="${esc(f.path)}"><span class="pill ${f.state} nodot" style="width:8px;height:8px;padding:0;border-radius:50%;background:${f.state === "protected" ? "var(--green)" : f.state === "paused" ? "var(--border-2)" : f.state === "missing" ? "var(--red)" : "var(--amber)"}"></span><span class="nm">${esc(f.name)}</span></a>`).join("")
+    : `<div class="faint small" style="padding:4px 10px">None yet</div>`;
+  $("#ver").textContent = "Rewind " + S.state.version;
+}
+
+// ------------------------------------------------------------------ router
+function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
+window.addEventListener("hashchange", route);
+async function route() {
+  clearInterval(S.timer); S.timer = null;
+  S.route = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+  const r = S.route[0] || "";
+  if (modalClose) closeModal();
+  try { await loadState(); } catch (e) { $("#main").innerHTML = `<div class="page"><div class="empty"><div class="big">Can't reach Rewind</div>${esc(e.message)}</div></div>`; return; }
+  $("#shell").classList.toggle("bare", r === "welcome");
+  $("#main").scrollTop = 0;
+  if (!r && !S.state.folders.length && !S.state.settings.onboarded) return go("#/welcome");
+  const pages = { "": pageHome, add: pageAdd, welcome: pageWelcome, f: pageFolder, connect: pageConnect, activity: pageActivity, settings: pageSettings };
+  (pages[r] || pageHome)();
+}
+function every(ms, fn) { clearInterval(S.timer); S.timer = setInterval(() => { if (!document.hidden && !modalClose) fn(); }, ms); }
+
+// ================================================================== HOME
+async function pageHome() {
+  const folders = S.state.folders;
+  const main = $("#main");
+  main.innerHTML = `<div class="page">
+    <div id="banner"></div>
+    <div class="page-head"><div class="grow"><h1>Your folders</h1><p class="sub">Rewind keeps a copy of every change in these folders, so you can always go back.</p></div>
+      <a class="btn primary" href="#/add">${ic("plus")}Protect a folder</a></div>
+    <div class="card list" id="folderList"></div>
+    <div class="section"><div class="section-head"><h2 class="grow">Recent activity</h2><a href="#/activity" class="small">See all</a></div><div class="card list feed" id="homeFeed"></div></div>
+  </div>`;
+  renderFolderList();
+  loadHomeFeed();
+  every(6000, async () => { await loadState(); renderFolderList(); loadHomeFeed(); });
+}
+function renderFolderList() {
+  const el = $("#folderList"); if (!el) return;
+  const folders = S.state.folders;
+  if (!folders.length) {
+    el.innerHTML = `<div class="empty"><div class="ficon accent" style="margin:0 auto 14px">${ic("shield", "lg")}</div><div class="big">No folders yet</div>Pick the folder your AI tools work in and Rewind starts saving every change.<div style="margin-top:16px"><a class="btn primary" href="#/add">${ic("plus")}Protect a folder</a></div></div>`;
+    return;
+  }
+  el.innerHTML = folders.map(f => {
+    const meta = f.state === "missing" ? "This folder was moved or deleted." : f.job && f.job.state === "error" ? esc(f.job.error)
+      : f.state === "preparing" ? "Saving the first copy of your files…"
+      : `Last saved ${ago(f.last_saved)} · ${size(f.bytes)} used`;
+    return `<a class="row" href="#/f/${f.id}">
+      <div class="ficon ${f.state === "protected" ? "green" : ""}">${ic(f.state === "protected" ? "shieldCheck" : "folder", "lg")}</div>
+      <div class="grow"><div class="title">${esc(f.name)}</div><div class="path">${esc(tildify(f.path))}</div></div>
+      <div style="text-align:right;min-width:0"><div>${pill(f)}</div><div class="meta" style="margin-top:4px">${meta}</div></div>
+      <button class="switch ${isOn(f) ? "on" : ""}" data-toggle="${f.id}" title="${isOn(f) ? "Pause protection" : "Turn protection on"}" aria-label="Protection" ${f.state === "missing" || f.state === "preparing" ? "disabled" : ""}></button>
+    </a>`;
+  }).join("");
+  $$("[data-toggle]", el).forEach(b => b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggleProtect(b.dataset.toggle, !b.classList.contains("on"), b); });
+}
+async function toggleProtect(id, on, btn) {
+  if (btn) { btn.disabled = true; btn.classList.toggle("on", on); }
+  try { await api(`/api/f/${id}/protect`, { on }); toast(on ? "Protection is on. Rewind saves changes as they happen." : "Protection paused. Nothing new is saved until you turn it back on."); }
+  catch (e) { fail(e); }
+  await loadState(); if (S.route[0] === "f") renderFolderHeader(); else renderFolderList();
+}
+const KIND = { blocked: ["shieldX", "red"], restored: ["undo", "blue"], recovered: ["fileUp", "green"], protected: ["shieldCheck", "green"], paused: ["pause", ""], added: ["plus", "accent"], removed: ["trash", ""], connected: ["plug", "accent"], disconnected: ["plug", ""], cleanup: ["broom", ""], settings: ["gear", ""] };
+function eventRow(ev, showFolder = true) {
+  const [i, c] = KIND[ev.kind] || ["sparkle", ""];
+  return `<div class="row"><div class="ficon sm ${c}">${ic(i)}</div><div class="grow"><div class="title" style="white-space:normal">${esc(ev.title)}</div>
+    ${ev.detail ? `<div class="files-inline" title="${esc(ev.detail)}">${esc(tildify(ev.detail))}</div>` : ""}
+    ${showFolder && ev.folder_name && !(ev.title || "").includes(ev.folder_name) ? `<div class="meta">${esc(ev.folder_name)}</div>` : ""}</div><div class="when">${ago(ev.time)}</div></div>`;
+}
+async function loadHomeFeed() {
+  let events = [];
+  try { events = (await api("/api/activity?limit=6")).events; } catch (e) { return; }
+  const el = $("#homeFeed"); if (!el) return;
+  el.innerHTML = events.length ? events.map(ev => eventRow(ev)).join("") : `<div class="empty small">Nothing yet. When Rewind blocks a command, restores files or connects a tool, it shows up here.</div>`;
+  const blocked = events.find(ev => ev.kind === "blocked" && Date.now() / 1000 - ev.time < 86400);
+  const b = $("#banner");
+  if (b) b.innerHTML = blocked ? `<div class="banner"><span class="ic">${ic("shieldX", "lg")}</span><div class="grow"><b>${esc(blocked.title)}</b> ${ago(blocked.time)}. Your files were not touched.${blocked.detail ? `<div class="files-inline" style="color:var(--muted)" title="${esc(blocked.detail)}">${esc(blocked.detail)}</div>` : ""}</div><a class="btn sm" href="#/activity">View</a></div>` : "";
+}
+
+// ================================================================== PICKER
+function pickerHtml() {
+  return `<div class="picker">
+    <div id="pkSuggest"></div>
+    <div class="section" style="margin-top:22px">
+      <div class="section-head"><h2 class="grow">Or browse to a folder</h2><label class="inline"><input type="checkbox" class="cb" id="pkHidden">Show hidden folders</label></div>
+      <div class="field" style="margin-bottom:10px"><input class="input mono" id="pkPath" placeholder="/Users/you/code/my-project" spellcheck="false" autocomplete="off"><button class="btn" id="pkGo">Go</button></div>
+      <div class="browser"><div class="crumbs" id="pkCrumbs"></div><div class="dirs" id="pkDirs"></div></div>
+      <details class="more" id="pkMore"><summary>Where Rewind keeps the saved copies</summary>
+        <div class="radio-cards" style="margin-top:12px">
+          <button class="radio-card on" data-store="local" type="button"><span class="rc"></span><span><div class="t">Inside the folder</div><div class="d">In a hidden <code>.rewind</code> folder that Git ignores. Simple and portable.</div></span></button>
+          <button class="radio-card" data-store="global" type="button"><span class="rc"></span><span><div class="t">In your home folder</div><div class="d">In <code>~/.rewind</code>, out of reach of tools working in the project.</div></span></button>
+        </div></details>
+    </div>
+    <div class="pickbar"><div class="grow"><div class="small muted">Selected folder</div><div class="mono" id="pkSel" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div><div class="check-msg" id="pkMsg"></div></div>
+      <button class="btn primary lg" id="pkProtect" disabled>${ic("shield")}Protect this folder</button></div></div>`;
+}
+function mountPicker(root, onAdded) {
+  let cur = null, globalStore = false;
+  const browse = async (path) => {
+    try {
+      const d = await api("/api/fs?path=" + encodeURIComponent(path || "") + ($("#pkHidden", root).checked ? "&hidden=1" : ""));
+      cur = d;
+      $("#pkPath", root).value = d.path;
+      $("#pkCrumbs", root).innerHTML = d.crumbs.map((c, i) => `${i ? '<span class="sep">/</span>' : ""}<button data-p="${esc(c.path)}">${esc(i === 0 && c.name === "/" ? "Computer" : c.name)}</button>`).join("");
+      $$("#pkCrumbs button", root).forEach(b => b.onclick = () => browse(b.dataset.p));
+      const dirs = d.dirs;
+      $("#pkDirs", root).innerHTML = dirs.length ? dirs.map(x => `<button class="dir" data-p="${esc(x.path)}">${ic("folder")}<span class="nm">${esc(x.name)}</span>${x.protected ? '<span class="badge green">Protected</span>' : x.project ? '<span class="badge accent">Project</span>' : ""}<span class="chev">${ic("chev")}</span></button>`).join("")
+        : `<div class="empty small" style="padding:22px">No folders inside${d.hidden ? ` (${d.hidden} hidden)` : ""}.</div>`;
+      $$("#pkDirs .dir", root).forEach(b => b.onclick = () => browse(b.dataset.p));
+      $("#pkSel", root).textContent = tildify(d.path);
+      const c = d.check, msg = $("#pkMsg", root);
+      if (c.ok) { msg.className = "check-msg " + (c.warning ? "warn" : "ok"); msg.innerHTML = c.warning ? ic("alert") + esc(c.warning) : ic("check") + "Ready to protect"; }
+      else if (c.container) { msg.className = "check-msg muted"; msg.innerHTML = esc(c.error); }
+      else { msg.className = "check-msg bad"; msg.innerHTML = ic("alert") + esc(c.error) + (c.already ? ` <a href="#/f/${c.already}">Open it</a>` : ""); }
+      $("#pkProtect", root).disabled = !c.ok;
+    } catch (e) { fail(e); }
+  };
+  $("#pkGo", root).onclick = () => browse($("#pkPath", root).value.trim());
+  $("#pkPath", root).addEventListener("keydown", (e) => { if (e.key === "Enter") browse($("#pkPath", root).value.trim()); });
+  $("#pkHidden", root).onchange = () => browse(cur && cur.path);
+  $$("[data-store]", root).forEach(b => b.onclick = () => { globalStore = b.dataset.store === "global"; $$("[data-store]", root).forEach(x => x.classList.toggle("on", x === b)); });
+  $("#pkProtect", root).onclick = async () => {
+    const btn = $("#pkProtect", root); btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>Protecting…`;
+    try {
+      const r = await api("/api/folders/add", { path: cur.path, global_store: globalStore });
+      if (r.warning) toast(r.warning);
+      onAdded(r.id);
+    } catch (e) { fail(e); btn.disabled = false; btn.innerHTML = ic("shield") + "Protect this folder"; }
+  };
+  api("/api/fs/suggestions").then(s => {
+    const el = $("#pkSuggest", root); if (!el) return;
+    el.innerHTML = (s.projects.length ? `<div class="section-head"><h2 class="grow">Projects on this computer</h2></div>
+      <div class="proj-grid">${s.projects.map(p => `<button class="proj" data-p="${esc(p.path)}"><span class="ficon sm accent">${ic("folder")}</span><span style="min-width:0"><div class="nm">${esc(p.name)}</div><div class="pp">${esc(tildify(p.path))}</div></span></button>`).join("")}</div>` : "")
+      + `<div class="section-head" style="margin-top:${s.projects.length ? 20 : 0}px"><h2 class="grow">Start from</h2></div><div class="places">${s.places.map(p => `<button class="chip-btn" data-p="${esc(p.path)}">${esc(p.label)}</button>`).join("")}</div>`;
+    $$("[data-p]", el).forEach(b => b.onclick = () => browse(b.dataset.p));
+    const code = s.places.find(p => !["Home", "Desktop", "Documents"].includes(p.label));
+    browse((code || s.places[0] || {}).path);
+  }).catch(() => browse(""));
+}
+function pageAdd() {
+  $("#main").innerHTML = `<div class="page"><div class="crumb"><a href="#/">Folders</a><span class="faint">/</span><span>Protect a folder</span></div>
+    <div class="page-head"><div class="grow"><h1>Protect a folder</h1><p class="sub">Choose the folder your AI tools work in. Rewind saves a copy of every file in it, including ones Git ignores like <code>.env</code>, and keeps saving as things change.</p></div></div>
+    <div id="picker">${pickerHtml()}</div></div>`;
+  mountPicker($("#picker"), (id) => { toast("Protecting your folder. The first copy is being saved."); go("#/f/" + id); });
+}
+
+// ================================================================== FOLDER
+async function pageFolder() {
+  const id = S.route[1], tab = S.route[2] || "overview";
+  const f = folderById(id);
+  if (!f) { $("#main").innerHTML = `<div class="page"><div class="empty"><div class="big">Folder not found</div>It may have been removed. <a href="#/">Back to your folders</a></div></div>`; return; }
+  $("#main").innerHTML = `<div class="page ${tab === "timeline" ? "wide" : ""}"><div class="crumb"><a href="#/">Folders</a><span class="faint">/</span><span>${esc(f.name)}</span></div>
+    <div id="fHead"></div>
+    <div class="tabs">${[["overview", "Overview"], ["deleted", "Deleted files"], ["timeline", "Timeline"], ["settings", "Settings"]].map(([k, l]) => `<a class="tab ${tab === k ? "on" : ""}" href="#/f/${id}/${k === "overview" ? "" : k}">${l}${k === "deleted" ? '<span class="n" id="delCount"></span>' : ""}</a>`).join("")}</div>
+    <div id="fBody"></div></div>`;
+  renderFolderHeader();
+  ({ overview: tabOverview, deleted: tabDeleted, timeline: tabTimeline, settings: tabFolderSettings }[tab] || tabOverview)(f);
+}
+function renderFolderHeader() {
+  const f = folderById(S.route[1]); const el = $("#fHead"); if (!f || !el) return;
+  const hooks = (f.hooks || []).length;
+  const note = f.state === "protected" ? `Saving changes as they happen${hooks ? " and before every AI tool edit" : ""}.`
+    : f.state === "paused" ? (hooks ? "Paused. Connected AI tools still save a copy before each edit." : "Paused. New changes aren't being saved.")
+    : f.state === "preparing" ? "Saving the first copy of your files…" : f.state === "missing" ? "This folder was moved or deleted." : f.state === "starting" ? "Starting the background saver…" : "";
+  el.innerHTML = `<div class="page-head" style="margin-bottom:0"><div class="ficon ${f.state === "protected" ? "green" : ""}" style="width:44px;height:44px;border-radius:11px">${ic(f.state === "protected" ? "shieldCheck" : "folder", "xl")}</div>
+    <div class="grow"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1>${esc(f.name)}</h1>${pill(f)}</div>
+    <div class="path mono faint" style="margin-top:4px">${esc(tildify(f.path))}</div><div class="small muted" style="margin-top:2px">${note}</div></div>
+    <div style="display:flex;align-items:center;gap:10px;padding-top:6px"><span class="small muted">Protection</span><button class="switch ${isOn(f) ? "on" : ""}" id="fToggle" aria-label="Protection" ${f.state === "missing" || f.state === "preparing" ? "disabled" : ""}></button></div></div>`;
+  $("#fToggle").onclick = () => toggleProtect(f.id, !$("#fToggle").classList.contains("on"), $("#fToggle"));
+}
+
+async function tabOverview(f) {
+  const body = $("#fBody");
+  body.innerHTML = `<div class="actions"><div class="card action"><div class="spinner"></div></div><div class="card action"></div></div>`;
+  const load = async () => {
+    let o;
+    try { o = await api(`/api/f/${f.id}/overview`); } catch (e) { body.innerHTML = `<div class="card empty"><div class="big">Can't read this folder's history</div>${esc(e.message)}</div>`; return; }
+    if (!body.isConnected || S.route[0] !== "f" || S.route[1] !== f.id || (S.route[2] || "overview") !== "overview") return;
+    const dc = $("#delCount"); if (dc) dc.textContent = o.deleted_count ? o.deleted_count : "";
+    const last = o.last;
+    const lastHtml = !last ? "Nothing has changed yet." : (last.title.startsWith("Started") ? "Nothing has changed since Rewind started protecting this folder."
+      : `Reverts the most recent change: <b>${esc(last.title)}</b>, ${esc(last.when)}.${last.files.length ? `<div class="files-inline" style="margin-top:6px">${esc(last.files.join(", "))}</div>` : ""}`);
+    const sess = o.session && (Date.now() / 1000 - o.session.started < 3 * 86400) ? o.session : null;
+    body.innerHTML = `
+      ${o.folder.state === "preparing" ? `<div class="card callout" style="margin-bottom:16px"><span class="spinner"></span><div class="grow">Saving the first copy of every file in this folder. This can take a minute for big folders.</div></div>` : ""}
+      <div class="actions">
+        <div class="card action"><div class="head"><div class="ficon accent">${ic("undo", "lg")}</div><h2>Undo last change</h2></div>
+          <div class="desc">${lastHtml}</div>
+          <div class="foot"><button class="btn primary" id="undoBtn">${ic("undo")}Undo last change…</button>${o.redo ? `<button class="btn" id="redoBtn">Redo…</button><span class="small muted">Puts back what the last undo reverted.</span>` : ""}</div></div>
+        <div class="card action"><div class="head"><div class="ficon accent">${ic("history", "lg")}</div><h2>Go back in time</h2></div>
+          <div class="desc">Put the whole folder back the way it was earlier. You'll see what changes before anything happens.</div>
+          <div class="foot">${[["5m", "5 min ago"], ["1h", "1 hour ago"], ["morning", "This morning"], ["yesterday", "Yesterday"]].map(([k, l]) => `<button class="chip-btn" data-preset="${k}">${l}</button>`).join("")}<button class="link-btn" data-preset="">Pick a time…</button></div></div>
+      </div>
+      ${sess ? `<div class="card callout" style="margin-top:16px"><div class="ficon">${ic("terminal", "lg")}</div><div class="grow"><div class="title" style="font-weight:600">Last AI session: ${esc(sess.who)}</div><div class="meta">Started ${esc(sess.when)} · last change ${esc(ago(sess.last))} · ${plural(sess.saves, "saved version")}</div></div><button class="btn" id="sessBtn">Undo this session…</button></div>` : ""}
+      ${o.deleted_count ? `<div class="card callout" style="margin-top:16px"><div class="ficon amber">${ic("fileUp", "lg")}</div><div class="grow"><div style="font-weight:600">${plural(o.deleted_count, "deleted file")} can be brought back</div><div class="files-inline">${esc(o.deleted_sample.join(", "))}${o.deleted_count > 3 ? ", …" : ""}</div></div><a class="btn" href="#/f/${f.id}/deleted">Review</a></div>` : ""}
+      <div class="section"><div class="section-head"><h2 class="grow">Recent changes</h2><a class="small" href="#/f/${f.id}/timeline">Full timeline</a></div>
+        <div class="card list feed">${o.recent.length ? o.recent.slice(0, 12).map(it => `<div class="row"><span class="dot ${it.kind}"></span><div class="grow"><div class="title" style="white-space:normal;font-weight:500">${esc(it.title)}</div>
+          <div class="meta">${esc(it.summary)}</div>${it.files.length ? `<div class="files-inline">${esc(it.files.join(", "))}</div>` : ""}</div><div class="when" title="${esc(whenLong(it.time))}">${esc(it.when)}</div></div>`).join("") : `<div class="empty small">No saved changes yet.</div>`}</div></div>`;
+    $("#undoBtn", body).onclick = () => previewFlow(f, "undo");
+    if ($("#redoBtn", body)) $("#redoBtn", body).onclick = () => previewFlow(f, "redo");
+    $$("[data-preset]", body).forEach(b => b.onclick = () => goBackModal(f, b.dataset.preset));
+    if ($("#sessBtn", body)) $("#sessBtn", body).onclick = () => previewFlow(f, "session", { session: sess.id });
+  };
+  await load();
+  every(8000, async () => { await loadState(); renderFolderHeader(); load(); });
+}
+
+function summaryHtml(s) {
+  const st = [];
+  if (s.come_back.length) st.push(`<span class="stat back">${ic("fileUp")}${plural(s.come_back.length, "file")} come${s.come_back.length === 1 ? "s" : ""} back</span>`);
+  if (s.change_back.length) st.push(`<span class="stat chg">${ic("undo")}${plural(s.change_back.length, "file")} change${s.change_back.length === 1 ? "s" : ""} back</span>`);
+  if (s.removed.length) st.push(`<span class="stat rm">${ic("trash")}${plural(s.removed.length, "file")} removed</span>`);
+  const list = (label, items) => items.length ? `<li class="lbl">${label}</li>` + items.slice(0, 200).map(p => `<li>${esc(p)}</li>`).join("") + (items.length > 200 ? `<li>… and ${items.length - 200} more</li>` : "") : "";
+  const total = s.come_back.length + s.change_back.length + s.removed.length;
+  return `<div class="sentence">${esc(s.sentence)}</div>${st.length > 1 ? `<div class="stats3">${st.join("")}</div>` : ""}
+    ${total || s.git_internal ? `<details class="more"><summary>Details</summary><ul class="flist">${list("Will come back", s.come_back)}${list("Will change back to the earlier version", s.change_back)}${list("Will be removed (created after that point)", s.removed)}</ul>
+    ${s.git_internal ? `<div class="small faint" style="margin-top:8px">Also ${plural(s.git_internal, "internal Git file")} (Git's own bookkeeping) will be restored to match.</div>` : ""}
+    ${s.target_id != null ? `<div class="small faint" style="margin-top:4px">Saved version #${s.target_id}</div>` : ""}</details>` : ""}`;
+}
+const REASSURE = `<div class="reassure">${ic("lock")}<span>Before changing anything, Rewind saves your current files, so you can undo this too.</span></div>`;
+
+async function previewFlow(f, kind, extra = {}) {
+  const TITLES = { undo: ["Undo the last change", "Undo"], redo: ["Redo", "Redo"], session: ["Undo this AI session", "Undo session"] };
+  const m = openModal(`<div class="m-head"><h2>${TITLES[kind][0]}</h2><p class="sub" id="pvSub">Checking what would change…</p></div>
+    <div class="m-body"><div class="preview" id="pv"><div class="spinner"></div></div>${REASSURE}</div>
+    <div class="m-foot"><button class="btn" data-x>Cancel</button><button class="btn primary" id="pvOk" disabled>${TITLES[kind][1]}</button></div>`, { wide: true });
+  m.querySelector("[data-x]").onclick = closeModal;
+  let p;
+  try { p = await api(`/api/f/${f.id}/preview`, Object.assign({ kind }, extra)); } catch (e) { $("#pv").innerHTML = `<div class="sentence">${esc(e.message)}</div>`; $("#pvSub").textContent = ""; return; }
+  if (p.nothing) { $("#pvSub").textContent = ""; $("#pv").innerHTML = `<div class="sentence">${esc(p.message || p.summary.sentence)}</div>`; return; }
+  $("#pvSub").textContent = kind === "undo" ? `Back to how things were ${p.when}.` : kind === "redo" ? "Forward again, to how things were before the undo." : `Back to how things were before it started, ${p.when}.`;
+  $("#pv").innerHTML = summaryHtml(p.summary);
+  const ok = $("#pvOk"); ok.disabled = false;
+  ok.onclick = () => doApply(f, Object.assign({ kind, expect: p.target_id }, extra), ok);
+}
+async function doApply(f, body, btn) {
+  btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>Working…`;
+  try {
+    const r = await api(`/api/f/${f.id}/apply`, body);
+    closeModal();
+    const after = r.kind === "undo" ? " Changed your mind? Use Redo." : " Changed your mind? Use Undo last change.";
+    toast(r.changed ? `Done. ${plural(r.changed, "file")} updated.${after}` : (r.message || "Nothing needed changing."));
+    route();
+  } catch (e) { btn.disabled = false; btn.textContent = "Try again"; fail(e); }
+}
+
+async function goBackModal(f, preset) {
+  let pts;
+  try { pts = await api(`/api/f/${f.id}/goback`); } catch (e) { return fail(e); }
+  const points = pts.points;
+  if (!points.length) return toast("Nothing has been saved in this folder yet.");
+  const m = openModal(`<div class="m-head"><h2>Go back in time</h2><p class="sub">Choose a moment. Rewind shows what will change before anything happens.</p></div>
+    <div class="m-body">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">${pts.presets.map(p => `<button class="chip-btn" data-k="${p.key}" ${p.snapshot_id == null ? "disabled" : ""} title="${esc(p.hint || "")}">${esc(p.label)}</button>`).join("")}</div>
+      <div class="small muted">Go back to</div><div class="when-big" id="gbWhen"></div><div class="small faint" id="gbAgo"></div>
+      <div class="slider-wrap"><input type="range" id="gbRange" min="0" max="${points.length - 1}" step="1" value="${points.length - 1}" aria-label="Point in time">
+        <div class="slider-ends"><span>${esc(whenLong(points[0].time))}</span><span>Latest save</span></div></div>
+      <div class="preview" id="gbPv"><div class="spinner"></div></div>${REASSURE}
+    </div>
+    <div class="m-foot"><button class="btn" data-x>Cancel</button><button class="btn primary" id="gbOk" disabled>Go back</button></div>`, { wide: true });
+  m.querySelector("[data-x]").onclick = closeModal;
+  const range = $("#gbRange");
+  let seq = 0, current = null, tm;
+  const show = (idx, presetKey) => {
+    const pt = points[idx];
+    $$("[data-k]", m).forEach(b => b.classList.toggle("on", b.dataset.k === presetKey));
+    $("#gbWhen").textContent = whenLong(pt.time);
+    $("#gbAgo").textContent = ago(pt.time);
+    $("#gbOk").textContent = "Go back to " + clock(pt.time);
+    clearTimeout(tm);
+    tm = setTimeout(async () => {
+      const my = ++seq; $("#gbOk").disabled = true; $("#gbPv").innerHTML = `<div class="spinner"></div>`;
+      try {
+        const p = await api(`/api/f/${f.id}/preview`, { kind: "back", snapshot_id: pt.id });
+        if (my !== seq) return;
+        current = p; $("#gbPv").innerHTML = summaryHtml(p.summary);
+        $("#gbOk").disabled = p.nothing;
+      } catch (e) { if (my === seq) $("#gbPv").innerHTML = `<div class="sentence">${esc(e.message)}</div>`; }
+    }, 180);
+  };
+  const idxFor = (sid) => { let best = 0; points.forEach((p, i) => { if (p.id <= sid) best = i; }); return best; };
+  range.oninput = () => show(+range.value, null);
+  $$("[data-k]", m).forEach(b => b.onclick = () => { const p = pts.presets.find(x => x.key === b.dataset.k); range.value = idxFor(p.snapshot_id); show(+range.value, p.key); });
+  $("#gbOk").onclick = () => current && doApply(f, { kind: "back", snapshot_id: current.target_id, expect: current.target_id }, $("#gbOk"));
+  const start = pts.presets.find(p => p.key === preset && p.snapshot_id != null);
+  if (start) { range.value = idxFor(start.snapshot_id); show(+range.value, start.key); }
+  else { range.value = Math.max(0, points.length - 2); show(+range.value, null); }
+}
+
+async function tabDeleted(f) {
+  const body = $("#fBody");
+  let all = [], git = false, sel = new Set(), q = "";
+  body.innerHTML = `<div class="toolbar"><div class="search">${ic("search")}<input class="input" id="dq" placeholder="Search deleted files" autocomplete="off" spellcheck="false"></div>
+    <label class="inline"><input type="checkbox" class="cb" id="dgit">Show Git's internal files</label><span style="flex:1"></span>
+    <button class="btn primary" id="dMany" disabled>${ic("fileUp")}Bring back selected</button></div>
+    <div class="card list" id="dList"><div class="empty"><div class="spinner" style="margin:0 auto"></div></div></div>
+    <p class="small faint" style="margin-top:12px">Bringing a file back never touches anything else in the folder.</p>`;
+  const render = () => {
+    const items = all.filter(d => !q || d.path.toLowerCase().includes(q));
+    const el = $("#dList");
+    $("#dMany").disabled = !sel.size; $("#dMany").innerHTML = ic("fileUp") + (sel.size ? `Bring back ${plural(sel.size, "file")}` : "Bring back selected");
+    if (!all.length) { el.innerHTML = `<div class="empty"><div class="ficon green" style="margin:0 auto 14px">${ic("check", "lg")}</div><div class="big">No deleted files</div>If something in this folder gets deleted, it shows up here and you can bring it back.</div>`; return; }
+    if (!items.length) { el.innerHTML = `<div class="empty small">No deleted files match “${esc(q)}”.</div>`; return; }
+    el.innerHTML = `<div class="row" style="padding:10px 18px;background:var(--surface-2)"><input type="checkbox" class="cb" id="dAll" ${items.every(d => sel.has(d.path)) ? "checked" : ""}><span class="small muted grow">${plural(items.length, "file")}${all.length > items.length ? ` of ${all.length}` : ""}</span></div>` +
+      items.slice(0, 500).map(d => { const [dir, name] = splitPath(d.path); return `<div class="row"><input type="checkbox" class="cb" data-sel="${esc(d.path)}" ${sel.has(d.path) ? "checked" : ""}>
+        <div class="ficon sm">${ic("file")}</div><div class="grow"><div class="title">${esc(name)} <span class="faint mono" style="font-weight:400;font-size:12px">${esc(dir)}</span></div>
+        <div class="meta">Deleted ${esc(d.when)}${d.who ? " by " + esc(d.who) : ""}${d.size != null ? " · " + size(d.size) : ""}</div></div>
+        <button class="btn sm" data-one="${esc(d.path)}">Bring back</button></div>`; }).join("") +
+      (items.length > 500 ? `<div class="row small muted">Showing 500 of ${items.length}. Search to narrow it down.</div>` : "");
+    const allBox = $("#dAll"); if (allBox) allBox.onchange = () => { items.forEach(d => allBox.checked ? sel.add(d.path) : sel.delete(d.path)); render(); };
+    $$("[data-sel]", el).forEach(c => c.onchange = () => { c.checked ? sel.add(c.dataset.sel) : sel.delete(c.dataset.sel); $("#dMany").disabled = !sel.size; $("#dMany").innerHTML = ic("fileUp") + (sel.size ? `Bring back ${plural(sel.size, "file")}` : "Bring back selected"); });
+    $$("[data-one]", el).forEach(b => b.onclick = () => recover([b.dataset.one], b));
+  };
+  const load = async () => {
+    try { const r = await api(`/api/f/${f.id}/deleted${git ? "?git=1" : ""}`); if (!body.isConnected) return; all = r.files; const dc = $("#delCount"); if (dc) dc.textContent = git ? "" : (r.total || ""); }
+    catch (e) { $("#dList").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+    sel = new Set([...sel].filter(p => all.some(d => d.path === p))); render();
+  };
+  const recover = async (paths, btn) => {
+    if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>`; }
+    try {
+      const r = await api(`/api/f/${f.id}/recover`, { paths });
+      paths.forEach(p => sel.delete(p));
+      toast(r.recovered.length ? `Brought back ${r.recovered.length === 1 ? r.recovered[0] : plural(r.recovered.length, "file")}.` : "Those files already exist again.");
+      if (r.errors.length) fail(new Error(r.errors.map(e => e.path + ": " + e.error).join("; ")));
+      await load();
+    } catch (e) { fail(e); if (btn) { btn.disabled = false; btn.textContent = "Bring back"; } }
+  };
+  $("#dq").oninput = () => { q = $("#dq").value.trim().toLowerCase(); render(); };
+  $("#dgit").onchange = () => { git = $("#dgit").checked; load(); };
+  $("#dMany").onclick = () => sel.size && recover([...sel], $("#dMany"));
+  await load();
+}
+
+function tabTimeline(f) {
+  $("#fBody").innerHTML = `<p class="small muted" style="margin:-8px 0 14px">The full technical history: every saved version, which files changed, and line-by-line differences. Press <kbd style="font-family:var(--mono);font-size:11px;border:1px solid var(--border-2);border-radius:4px;padding:0 4px">?</kbd> inside for shortcuts.</p>
+    <iframe class="timeline" title="Timeline" src="/ui?t=${encodeURIComponent(TOKEN)}&f=${f.id}&embed=1"></iframe>`;
+}
+
+const MODES = [["block", "Block (recommended)", "Stop AI tools from running commands that delete or overwrite work, like rm -rf or git reset --hard."],
+  ["snapshot", "Save a copy, then allow", "Save everything first, then let the command run."],
+  ["warn", "Warn only", "Let the command run, with a warning to the AI tool."],
+  ["off", "Off", "Don't check commands. Rewind still saves your files."]];
+function modeCards(current) { return `<div class="radio-cards">${MODES.map(([k, t, d]) => `<button type="button" class="radio-card ${current === k ? "on" : ""}" data-mode="${k}"><span class="rc"></span><span><div class="t">${t}</div><div class="d">${d}</div></span></button>`).join("")}</div>`; }
+const KEEP = [7, 14, 30, 90, 365];
+function keepSelect(current) { const opts = KEEP.includes(current) ? KEEP : KEEP.concat([current]).sort((a, b) => a - b); return `<select class="input" id="keep" style="width:auto">${opts.map(d => `<option value="${d}" ${d === current ? "selected" : ""}>${d === 365 ? "1 year" : d + " days"}</option>`).join("")}</select>`; }
+
+async function tabFolderSettings(f) {
+  const body = $("#fBody");
+  let s;
+  try { s = await api(`/api/f/${f.id}/settings`); } catch (e) { body.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+  body.innerHTML = `
+    <div class="section" style="margin-top:0"><div class="section-head"><h2>Safety mode</h2></div><p class="muted small" style="margin:-4px 0 12px">What happens when a connected AI tool tries a dangerous command in this folder. <a href="#/connect">Connect your AI tools</a> to turn this on.</p>${modeCards(s.guard_mode)}</div>
+    <div class="section"><div class="card">
+      <div class="setting"><div class="grow"><div class="t">Keep history for</div><div class="d">Everything from the last day is kept. Older history is thinned to one copy per hour, then one per day, then removed.</div></div>${keepSelect(s.keep_days)}</div>
+      <div class="setting"><div class="grow"><div class="t">Storage</div><div class="d">${size(s.bytes)} used by ${plural(s.versions, "saved version")}. Identical files are stored once.</div></div><button class="btn" id="clean">${ic("broom")}Clean up…</button></div>
+    </div>
+    <details class="more"><summary>Details</summary><div class="kv">
+      <div class="k">Saved copies</div><div class="v">${esc(s.store)}</div><div class="k">Settings file</div><div class="v">${esc(s.config_path)}</div>
+      <div class="k">Ignored files list</div><div class="v">${esc(s.ignore_path)}</div><div class="k">Retention</div><div class="v">all for ${s.keep_all_hours}h · hourly for ${s.hourly_days}d · daily for ${s.keep_days}d</div>
+      <div class="k">Largest file saved</div><div class="v">${s.max_file_size_mb} MB</div><div class="k">AI tool hooks</div><div class="v">${(f.hooks || []).join(", ") || "none in this folder"}</div></div></details></div>
+    <div class="section"><div class="card"><div class="setting"><div class="grow"><div class="t">Stop protecting this folder</div><div class="d">Removes it from Rewind. Your files are not touched.</div></div><button class="btn" id="rm" style="color:var(--red)">Remove…</button></div></div></div>`;
+  $$("[data-mode]", body).forEach(b => b.onclick = async () => {
+    try { await api(`/api/f/${f.id}/settings`, { guard_mode: b.dataset.mode }); $$("[data-mode]", body).forEach(x => x.classList.toggle("on", x === b)); toast("Safety mode updated."); } catch (e) { fail(e); }
+  });
+  $("#keep").onchange = async () => { try { await api(`/api/f/${f.id}/settings`, { keep_days: +$("#keep").value }); toast("History setting saved."); } catch (e) { fail(e); } };
+  $("#clean").onclick = () => cleanupFlow(f, () => tabFolderSettings(f));
+  $("#rm").onclick = async () => {
+    const r = await confirmModal({ title: "Stop protecting " + f.name + "?", ok: "Remove from Rewind", danger: true,
+      body: `<p class="muted" style="margin-top:0">Rewind stops saving changes in this folder. Your files stay exactly as they are.</p><label class="inline"><input type="checkbox" class="cb" id="delHist">Also delete the saved history (${size(s.bytes)})</label>` });
+    if (!r) return;
+    const del = r.el.querySelector("#delHist").checked;
+    try { await api("/api/folders/remove", { id: f.id, delete_history: del }); toast(f.name + " was removed from Rewind."); go("#/"); } catch (e) { fail(e); }
+  };
+}
+async function cleanupFlow(f, after) {
+  let p;
+  try { p = await api(`/api/f/${f.id}/cleanup`, { dry_run: true }); } catch (e) { return fail(e); }
+  if (!p.snapshots_deleted && !p.objects_deleted) return toast("Nothing to clean up. Everything is inside your history window.");
+  const ok = await confirmModal({ title: "Clean up " + f.name + "?", ok: "Clean up",
+    body: `<p class="muted" style="margin-top:0">This frees about <b style="color:var(--text)">${size(p.bytes_freed)}</b> by removing ${plural(p.snapshots_deleted, "old saved version")} outside your history window. Recent history is kept.</p>` });
+  if (!ok) return;
+  try { const r = await api(`/api/f/${f.id}/cleanup`, {}); toast(`Freed ${size(r.bytes_freed)}.`); if (after) after(); } catch (e) { fail(e); }
+}
+
+// ================================================================== CONNECT
+const AVATAR = { "claude-code": ["CC", "#d97757"], "claude-desktop": ["C", "#c96442"], codex: ["Cx", "#111111"], gemini: ["G", "#3f7cf4"], cursor: ["Cu", "#262626"], windsurf: ["W", "#0b9c8a"], vscode: ["VS", "#1f7ad1"] };
+const KIND_TEXT = { hooks: ["Safety hooks", "Saves a copy before every edit and blocks dangerous commands."], mcp: ["Rewind tools (MCP)", "Lets the assistant check history, undo and recover files when you ask it to."] };
+async function pageConnect() {
+  const folders = S.state.folders;
+  const pick = sessionStorage.getItem("rewind.scope") || "global";
+  const scopeF = pick !== "global" && folders.find(f => f.id === pick) ? pick : "global";
+  $("#main").innerHTML = `<div class="page"><div class="page-head"><div class="grow"><h1>Connect your AI tools</h1><p class="sub">Connected tools save a copy before every change, can't run commands that wipe out work, and can undo for you. Rewind shows exactly which settings file it changes, and backs it up first.</p></div></div>
+    <div class="scope-bar"><span class="muted small">Apply to</span><select class="input" id="scope"><option value="global">All folders (your user settings)</option>${folders.map(f => `<option value="${f.id}" ${scopeF === f.id ? "selected" : ""}>Only ${esc(f.name)}</option>`).join("")}</select>
+      <span class="small faint" id="scopeNote"></span></div>
+    <div id="toolList"><div class="card empty"><div class="spinner" style="margin:0 auto"></div></div></div></div>`;
+  $("#scope").value = scopeF;
+  $("#scope").onchange = () => { sessionStorage.setItem("rewind.scope", $("#scope").value); pageConnect(); };
+  $("#scopeNote").textContent = scopeF === "global" ? "Tools only act in folders Rewind protects." : "Writes settings files inside this folder.";
+  let t;
+  try { t = await api("/api/tools" + (scopeF !== "global" ? "?f=" + scopeF : "")); } catch (e) { $("#toolList").innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
+  S.tools = t.tools;
+  const card = (tool) => {
+    const [ini, color] = AVATAR[tool.id] || ["?", "#666"];
+    const rows = tool.integrations.map(row => {
+      const scope = scopeF !== "global" && row.scopes.includes("folder") ? "folder" : (row.scopes.includes("global") ? "global" : null);
+      if (!scope) return "";
+      const on = row.status[scope], path = row.paths[scope];
+      const scopeNote = scopeF !== "global" && scope === "global" ? ' <span class="badge">Applies to all folders</span>' : "";
+      return `<div class="integ"><div class="grow"><div class="t">${KIND_TEXT[row.kind][0]}${scopeNote}</div><div class="d">${KIND_TEXT[row.kind][1]}</div><div class="p" title="${esc(path)}">${esc(tildify(path))}</div></div>
+        ${on ? `<span class="connected">${ic("check")}Connected</span><button class="btn ghost sm" data-act="disconnect" data-tool="${tool.id}" data-kind="${row.kind}" data-scope="${scope}">Disconnect</button>`
+             : `<button class="btn ${tool.detected ? "primary" : ""} sm" data-act="connect" data-tool="${tool.id}" data-kind="${row.kind}" data-scope="${scope}">Connect</button>`}</div>`;
+    }).join("");
+    return `<div class="card tool" style="margin-bottom:12px"><div class="tool-head"><div class="avatar" style="background:${color}">${ini}</div><div class="grow"><div style="font-weight:600;font-size:15px">${esc(tool.title)}</div><div class="small muted">${esc(tool.blurb)}</div></div>
+      ${tool.detected ? '<span class="badge green">Found on this computer</span>' : '<span class="badge">Not found</span>'}</div>${rows}</div>`;
+  };
+  const found = t.tools.filter(x => x.detected), missing = t.tools.filter(x => !x.detected);
+  $("#toolList").innerHTML = (found.length ? found.map(card).join("") : `<div class="card empty" style="margin-bottom:12px"><div class="big">No AI tools found yet</div>Install one of the tools below, or connect it anyway if it's installed somewhere Rewind didn't look.</div>`) +
+    (missing.length ? `<details class="more" ${found.length ? "" : "open"} style="margin-top:20px"><summary>${found.length ? "Other tools (" + missing.length + ")" : "All supported tools"}</summary><div style="margin-top:12px">${missing.map(card).join("")}</div></details>` : "") +
+    `<p class="small faint" style="margin-top:22px">Using Aider, OpenCode or another tool? Start it with <code>rewind run -- aider</code> in a terminal and every change it makes is saved as one session.</p>`;
+  $$("[data-act]").forEach(b => b.onclick = () => connectFlow({ tool: b.dataset.tool, kind: b.dataset.kind, scope: b.dataset.scope, f: scopeF !== "global" ? scopeF : undefined, action: b.dataset.act }, pageConnect));
+}
+async function connectFlow(req, after) {
+  let p;
+  try { p = await api("/api/tools/plan", req); } catch (e) { return fail(e); }
+  const tool = (S.tools || []).find(x => x.id === req.tool) || { title: req.tool };
+  const connect = req.action === "connect";
+  const diff = (p.diff || []).map(l => `<div class="${l.startsWith("+") ? "a" : l.startsWith("-") ? "d" : l.startsWith("@@") ? "h" : ""}">${esc(l) || " "}</div>`).join("");
+  const body = `${p.command ? `<p class="muted" style="margin-top:0">Rewind will run this command for you:</p><div class="pathbox">${esc(p.command.join(" "))}</div>`
+      : `<p class="muted" style="margin-top:0">${connect ? "Rewind will update this file" : "Rewind will remove its entries from this file"}${p.exists ? "" : " (it will be created)"}:</p><div class="pathbox">${esc(p.path)}</div>
+         ${diff ? `<div class="diff">${diff}</div>` : `<p class="small faint">No changes needed in this file.</p>`}`}
+    ${p.extra_files.length ? `<p class="muted small" style="margin:14px 0 6px">${connect ? "Also adds" : "Also removes"} these Claude Code commands (<code>/rewind-undo</code>, <code>/rewind-log</code>, <code>/rewind-checkpoint</code>):</p>${p.extra_files.map(x => `<div class="mono faint" style="font-size:11.5px">${esc(x.path)}</div>`).join("")}` : ""}
+    ${(p.notes || []).map(n => `<div class="reassure">${ic("alert")}<span>${esc(n)}</span></div>`).join("")}
+    ${p.exists ? `<div class="reassure">${ic("lock")}<span>A copy of the current file is saved to <code>${esc(tildify(p.backup_dir))}</code> before anything is written.</span></div>` : ""}`;
+  const ok = await confirmModal({ title: (connect ? "Connect " : "Disconnect ") + tool.title, body, ok: connect ? "Connect" : "Disconnect", danger: !connect });
+  if (!ok) return;
+  try {
+    const r = await api("/api/tools/apply", req);
+    toast(connect ? `${tool.title} is connected.${r.backup ? " Backup saved." : ""} Restart ${tool.title} if it's open.` : `${tool.title} is disconnected.`);
+    if (after) after();
+  } catch (e) { fail(e); }
+}
+
+// ================================================================== ACTIVITY
+async function pageActivity() {
+  $("#main").innerHTML = `<div class="page"><div class="page-head"><div class="grow"><h1>Activity</h1><p class="sub">Blocked commands, restores and settings changes across all your folders.</p></div></div><div id="act"><div class="card empty"><div class="spinner" style="margin:0 auto"></div></div></div></div>`;
+  const load = async () => {
+    let ev; try { ev = (await api("/api/activity?limit=200")).events; } catch (e) { return fail(e); }
+    const el = $("#act"); if (!el) return;
+    if (!ev.length) { el.innerHTML = `<div class="card empty"><div class="big">Nothing yet</div>When Rewind blocks a dangerous command, brings files back, or you change a setting, it's listed here.</div>`; return; }
+    const groups = []; ev.forEach(e => { const d = dayLabel(e.time); if (!groups.length || groups[groups.length - 1][0] !== d) groups.push([d, []]); groups[groups.length - 1][1].push(e); });
+    el.innerHTML = groups.map(([d, items]) => `<div class="section" style="margin-top:22px"><div class="section-head"><h2 class="grow small muted" style="font-weight:600">${esc(d)}</h2></div><div class="card list feed">${items.map(e => eventRow(e).replace(`<div class="when">${ago(e.time)}</div>`, `<div class="when">${clock(e.time)}</div>`)).join("")}</div></div>`).join("");
+    el.firstChild.style.marginTop = "0";
+  };
+  await load();
+  every(10000, load);
+}
+
+// ================================================================== SETTINGS
+async function pageSettings() {
+  const st = S.state, folders = st.folders;
+  const settingsFor = await Promise.all(folders.filter(f => f.state !== "missing" && f.state !== "not-set-up").map(f => api(`/api/f/${f.id}/settings`).then(s => [f, s]).catch(() => null))).then(x => x.filter(Boolean));
+  const modes = [...new Set(settingsFor.map(([, s]) => s.guard_mode))], keeps = [...new Set(settingsFor.map(([, s]) => s.keep_days))];
+  const total = settingsFor.reduce((a, [, s]) => a + s.bytes, 0);
+  $("#main").innerHTML = `<div class="page"><div class="page-head"><div class="grow"><h1>Settings</h1></div></div>
+    <div class="section" style="margin-top:0"><div class="section-head"><h2>Safety mode</h2></div>
+      <p class="muted small" style="margin:-4px 0 12px">What happens when a connected AI tool tries a command that could wipe out work. Applies to all your folders${modes.length > 1 ? ". <b>Your folders currently use different modes</b>; you can also set it per folder" : ""}.</p>
+      ${settingsFor.length ? modeCards(modes.length === 1 ? modes[0] : null) : `<div class="card empty small">Protect a folder first.</div>`}</div>
+    <div class="section"><div class="card">
+      <div class="setting"><div class="grow"><div class="t">Keep history for</div><div class="d">For all folders. Everything from the last day is always kept.</div></div>${settingsFor.length ? keepSelect(keeps.length === 1 ? keeps[0] : 30) : '<span class="faint small">—</span>'}</div>
+      <div class="setting"><div class="grow"><div class="t">Notifications</div><div class="d">Show a desktop notification when Rewind blocks a command.</div></div><button class="switch ${st.settings.notifications ? "on" : ""}" id="notif" aria-label="Notifications"></button></div>
+      <div class="setting"><div class="grow"><div class="t">Start Rewind when you log in</div><div class="d">Keeps your folders protected after you restart your computer.</div></div><button class="switch ${st.autostart ? "on" : ""}" id="auto" aria-label="Start at login"></button></div>
+    </div></div>
+    <div class="section"><div class="section-head"><h2 class="grow">Storage</h2><span class="small muted">${size(total)} in total</span></div>
+      <div class="card list">${settingsFor.length ? settingsFor.map(([f, s]) => `<div class="row"><div class="ficon sm">${ic("folder")}</div><div class="grow"><div class="title">${esc(f.name)}</div><div class="meta">${size(s.bytes)} · ${plural(s.versions, "saved version")}</div></div><button class="btn sm" data-clean="${f.id}">${ic("broom")}Clean up…</button></div>`).join("") : `<div class="empty small">No folders yet.</div>`}</div></div>
+    <div class="section"><div class="section-head"><h2>About</h2></div><div class="card card-pad">
+      <div class="kv" style="margin-top:0"><div class="k">Version</div><div class="v">${esc(st.version)}</div><div class="k">Rewind's data</div><div class="v">${esc(st.rewind_home)}</div><div class="k">Settings backups</div><div class="v">${esc(st.rewind_home)}/backups</div></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:18px"><button class="btn" id="quit">Stop the Rewind app</button><span class="small muted">Folder protection keeps running in the background. Open Rewind again any time.</span></div>
+    </div></div>
+    <p class="small faint" style="margin-top:24px">Prefer the terminal? Everything here is also available as <code>rewind</code> commands. Run <code>rewind --help</code>.</p></div>`;
+  $$("[data-mode]").forEach(b => b.onclick = async () => { try { await api("/api/settings/folders", { guard_mode: b.dataset.mode }); $$("[data-mode]").forEach(x => x.classList.toggle("on", x === b)); toast("Safety mode updated for all folders."); } catch (e) { fail(e); } });
+  if ($("#keep")) $("#keep").onchange = async () => { try { await api("/api/settings/folders", { keep_days: +$("#keep").value }); toast("History setting saved for all folders."); } catch (e) { fail(e); } };
+  $("#notif").onclick = async () => { const on = !$("#notif").classList.contains("on"); try { await api("/api/settings", { notifications: on }); $("#notif").classList.toggle("on", on); } catch (e) { fail(e); } };
+  $("#auto").onclick = async () => {
+    const on = !$("#auto").classList.contains("on"); $("#auto").disabled = true;
+    try { const r = await api("/api/autostart", { on }); $("#auto").classList.toggle("on", r.enabled); toast(r.notes && r.notes.length ? r.notes[0] : (r.enabled ? "Rewind will start when you log in." : "Rewind won't start at login.")); } catch (e) { fail(e); }
+    $("#auto").disabled = false;
+  };
+  $$("[data-clean]").forEach(b => b.onclick = () => cleanupFlow(folderById(b.dataset.clean), pageSettings));
+  $("#quit").onclick = async () => {
+    const ok = await confirmModal({ title: "Stop the Rewind app?", ok: "Stop", body: `<p class="muted" style="margin-top:0">This closes the app's window server. Your protected folders keep being saved in the background. Open Rewind again from your launcher or with <code>rewind app</code>.</p>` });
+    if (!ok) return;
+    try { await api("/api/quit", {}); } catch (e) {}
+    document.body.innerHTML = `<div class="welcome"><div class="welcome-top"><img src="/favicon.png" alt=""><h1>Rewind has stopped</h1><p>Your folders are still protected. You can close this tab.</p></div></div>`;
+  };
+}
+
+// ================================================================== WELCOME
+async function pageWelcome() {
+  const step = +(S.route[1] || 1), fid = S.route[2];
+  const stepper = [["Pick a folder"], ["Connect your AI tools"], ["Done"]].map(([l], i) => `${i ? '<span class="step-line"></span>' : ""}<span class="step ${i + 1 === step ? "on" : i + 1 < step ? "done" : ""}"><span class="n">${i + 1 < step ? ic("check") : i + 1}</span>${l}</span>`).join("");
+  $("#main").innerHTML = `<div class="welcome"><div class="welcome-top"><img src="/favicon.png" alt=""><h1>${step === 3 ? "You're protected" : "Welcome to Rewind"}</h1>
+    <p>${step === 3 ? "Rewind is saving every change in your folder from now on." : "An undo button for everything your AI tools change. Set up takes a minute."}</p></div>
+    <div class="steps">${stepper}</div><div id="wBody"></div></div>`;
+  const body = $("#wBody");
+  if (step === 1) {
+    body.innerHTML = `<div class="card card-pad"><h2 style="font-size:16px">Which folder do your AI tools work in?</h2><p class="muted" style="margin:4px 0 18px">Rewind saves a copy of every file in it, including ones Git ignores like <code>.env</code>, and keeps saving as things change.</p><div id="picker">${pickerHtml()}</div></div>
+      <div style="text-align:center;margin-top:16px"><button class="link-btn muted" id="skip">Skip setup</button></div>`;
+    mountPicker($("#picker"), (id) => go("#/welcome/2/" + id));
+    $("#skip").onclick = async () => { await api("/api/settings", { onboarded: true }); go("#/"); };
+    return;
+  }
+  if (step === 2) {
+    body.innerHTML = `<div class="card card-pad"><h2 style="font-size:16px">Connect your AI tools</h2><p class="muted" style="margin:4px 0 6px">Connected tools save a copy before every edit and can't run commands that wipe out work. Rewind shows the exact settings file it changes and backs it up first.</p><div id="wTools"><div class="spinner" style="margin:20px auto"></div></div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px"><button class="link-btn muted" id="later">I'll do this later</button><button class="btn primary lg" id="next">Continue</button></div>`;
+    const renderTools = async () => {
+      let t; try { t = await api("/api/tools"); } catch (e) { $("#wTools").innerHTML = esc(e.message); return; }
+      S.tools = t.tools;
+      const found = t.tools.filter(x => x.detected);
+      const rows = [];
+      found.forEach(tool => tool.integrations.forEach(row => { if (row.scopes.includes("global") && (row.kind === "hooks" || !tool.integrations.some(r => r.kind === "hooks"))) rows.push([tool, row]); }));
+      $("#wTools").innerHTML = rows.length ? `<div class="list" style="margin:10px -20px -20px;border-top:1px solid var(--border)">${rows.map(([tool, row]) => { const [ini, color] = AVATAR[tool.id] || ["?", "#666"]; const on = row.status.global;
+        return `<div class="row"><div class="avatar" style="background:${color};width:32px;height:32px;font-size:12px">${ini}</div><div class="grow"><div class="title">${esc(tool.title)} <span class="faint" style="font-weight:400">· ${KIND_TEXT[row.kind][0]}</span></div><div class="path">${esc(tildify(row.paths.global))}</div></div>
+          ${on ? `<span class="connected">${ic("check")}Connected</span>` : `<button class="btn primary sm" data-tool="${tool.id}" data-kind="${row.kind}">Connect</button>`}</div>`; }).join("")}</div>`
+        : `<div class="empty small" style="padding:22px 0 6px">No AI tools found on this computer yet. You can connect them later from <b>Connect AI tools</b>, or run any tool with <code>rewind run -- &lt;tool&gt;</code>.</div>`;
+      $$("[data-tool]", $("#wTools")).forEach(b => b.onclick = () => connectFlow({ tool: b.dataset.tool, kind: b.dataset.kind, scope: "global", action: "connect" }, renderTools));
+    };
+    renderTools();
+    $("#later").onclick = $("#next").onclick = () => go("#/welcome/3/" + (fid || ""));
+    return;
+  }
+  await api("/api/settings", { onboarded: true });
+  const tips = [["undo", "Undo last change", "If an AI tool breaks something, open Rewind and press Undo. You'll see what changes first."],
+    ["history", "Go back in time", "Return the folder to 5 minutes ago, this morning or yesterday."], ["fileUp", "Recover deleted files", "Anything deleted shows up in the folder's Deleted files tab."]];
+  body.innerHTML = `<div class="card card-pad"><div class="done-hero"><div class="ok">${ic("check", "xl")}</div><div class="muted">Rewind keeps running in the background. Open it any time from your apps${S.state.platform === "darwin" ? " (Applications)" : S.state.platform.startsWith("win") ? " (Start menu)" : " menu"}.</div></div>
+    <div class="tips">${tips.map(([i, t, d]) => `<div class="card tip"><div class="ficon accent sm">${ic(i)}</div><div class="t">${t}</div><div class="d">${d}</div></div>`).join("")}</div></div>
+    <div style="text-align:center;margin-top:20px"><a class="btn primary lg" href="${fid ? "#/f/" + fid : "#/"}">${fid ? "Open my folder" : "Go to Rewind"}</a></div>`;
+}
+
+route();
+})();
+</script>
+</body>
+</html>

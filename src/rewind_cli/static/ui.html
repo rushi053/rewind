@@ -91,7 +91,7 @@ kbd { font-family: var(--mono); font-size: 10.5px; padding: 1px 5px; border-radi
 .fpath span { direction: ltr; unicode-bidi: bidi-override; }
 .fpath .dir { color: var(--faint); }
 .seg { display: inline-flex; border: 1px solid var(--border-2); border-radius: 7px; overflow: hidden; }
-.seg button { border: 0; background: transparent; padding: 0 10px; height: 26px; cursor: pointer; color: var(--muted); font-size: 12px; }
+.seg button { white-space: nowrap; border: 0; background: transparent; padding: 0 10px; height: 26px; cursor: pointer; color: var(--muted); font-size: 12px; }
 .seg button.on { background: var(--sel); color: var(--text); }
 main { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
 .detail-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel); min-height: 46px; }
@@ -129,6 +129,7 @@ main { min-width: 0; min-height: 0; display: flex; flex-direction: column; backg
 .toast .ok { color: var(--green); font-weight: 600; }
 .toast .bad { color: var(--red); font-weight: 600; }
 .icon { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.embed .app { grid-template-rows: 1fr; grid-template-columns: minmax(250px, 28%) minmax(220px, 22%) 1fr; } .embed header { display: none; }
 @media (max-width: 1000px) { .app { grid-template-columns: 290px 1fr; } .col.files-col { display: none; } }
 </style>
 </head>
@@ -185,7 +186,12 @@ main { min-width: 0; min-height: 0; display: flex; flex-direction: column; backg
 <script>
 (() => {
 "use strict";
-const TOKEN = new URLSearchParams(location.search).get("t") || "";
+const PARAMS = new URLSearchParams(location.search);
+const TOKEN = PARAMS.get("t") || "";
+// Inside the Rewind app the timeline is embedded per folder: /ui?f=<id>&embed=1
+const API_BASE = PARAMS.get("f") ? "/api/f/" + encodeURIComponent(PARAMS.get("f")) : "/api";
+if (PARAMS.get("embed")) document.documentElement.classList.add("embed");
+window.addEventListener("message", (e) => { if (e.origin === location.origin && e.data && e.data.theme) applyTheme(e.data.theme); });
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const state = { data: null, flat: [], sel: null, files: [], fileSel: -1, base: "parent", mode: localStorage.getItem("rewind.mode") || "unified", q: "", snapCache: new Map() };
@@ -193,7 +199,7 @@ const state = { data: null, flat: [], sel: null, files: [], fileSel: -1, base: "
 async function api(path, body) {
   const opts = { headers: { "X-Rewind-Token": TOKEN } };
   if (body !== undefined) { opts.method = "POST"; opts.body = JSON.stringify(body); opts.headers["Content-Type"] = "application/json"; }
-  const res = await fetch(path, opts);
+  const res = await fetch(path.replace(/^\/api/, API_BASE), opts);
   const json = await res.json().catch(() => ({ error: "bad response" }));
   if (!res.ok) throw new Error(json.error || res.statusText);
   return json;

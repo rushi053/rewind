@@ -322,3 +322,86 @@ def recover(repo, patterns, from_ref=None, dry_run=False):
     res = execute(repo, compute, "recover %s" % " ".join(patterns), dry_run)
     res.sources = holder.get("sources", {})
     return res
+
+
+def recover_paths(repo, paths, dry_run=False):
+    """Bring back exactly these project-relative paths (no glob expansion: `[id].tsx` is a file name).
+
+    Each path comes from the newest snapshot that has it. Paths that exist now are left alone.
+    """
+    wanted = {p.strip("/") for p in paths if p and p.strip("/")}
+    if not wanted:
+        raise RewindError("choose at least one file to bring back")
+    holder = {}
+
+    def compute(current):
+        chosen = {}
+        seen = set()
+        for sid in reversed(repo.snapshot_ids()):
+            meta = repo.get_snapshot(sid)
+            if meta["manifest"] in seen:
+                continue
+            seen.add(meta["manifest"])
+            files = repo.load_manifest(meta["manifest"])
+            for path in wanted:
+                if path in files and path not in current and path not in chosen:
+                    chosen[path] = (files[path], sid)
+            if len(chosen) == len(wanted):
+                break
+        plan = Plan(label="recover")
+        for path in sorted(chosen):
+            plan.writes.append((path, chosen[path][0], "create"))
+        holder["sources"] = {p: s for p, (e, s) in chosen.items()}
+        return plan
+
+    label = sorted(wanted)[0] if len(wanted) == 1 else "%d files" % len(wanted)
+    res = execute(repo, compute, "recover %s" % label, dry_run)
+    res.sources = holder.get("sources", {})
+    return res
+
+
+def deleted_files(repo, include_git=False, max_versions=400):
+    """Files that some saved version has but the folder doesn't have now, newest deletion first.
+
+    Returns dicts: path, size, last_seen (snapshot id that still had it), deleted_at (time of the
+    first snapshot without it, or None if it vanished after the latest snapshot), deleted_in
+    (that snapshot's id) and session (the session that snapshot belongs to).
+    """
+    from .scan import load_ignore
+
+    current = scan(repo).files
+    matcher = load_ignore(repo)
+    found = {}
+    seen = set()
+    newer = None
+    checked = 0
+    for sid in reversed(repo.snapshot_ids()):
+        meta = repo.get_snapshot(sid)
+        if meta["manifest"] in seen:
+            newer = meta
+            continue
+        seen.add(meta["manifest"])
+        checked += 1
+        if checked > max_versions:
+            break
+        for path, entry in repo.load_manifest(meta["manifest"]).items():
+            if path in current or path in found:
+                continue
+            if not include_git and (path == ".git" or path.startswith(".git/")):
+                continue
+            if matcher.is_ignored(path):
+                continue
+            found[path] = {
+                "path": path,
+                "size": entry.get("s"),
+                "link": entry.get("l"),
+                "last_seen": sid,
+                "last_seen_time": meta["time"],
+                "deleted_at": newer["time"] if newer else None,
+                "deleted_in": newer["id"] if newer else None,
+                "session": newer.get("session") if newer else None,
+            }
+        newer = meta
+    out = list(found.values())
+    out.sort(key=lambda d: (-(d["deleted_at"] or 1e18), d["path"]))
+    return out
