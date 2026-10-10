@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: python -m pip install -e . pytest
+      - name: Check there are no runtime dependencies
+        run: python -c "import importlib.metadata as m; r = m.requires('rewind-cli') or []; assert not [x for x in r if 'extra' not in x], r"
+      - name: Test
+        run: python -m pytest -o addopts="" -ra
+      - name: End-to-end disaster demo
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name ci
+          REWIND_COLOR=never bash scripts/disaster-demo.sh
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: python -m pip install build && python -m build
+      - name: Smoke-test the wheel in a clean venv
+        run: |
+          python -m venv /tmp/w && /tmp/w/bin/pip install dist/*.whl
+          /tmp/w/bin/rewind --version
+          /tmp/w/bin/python -c "import rewind_cli, pathlib; assert (pathlib.Path(rewind_cli.__file__).parent / 'static' / 'ui.html').exists()"
