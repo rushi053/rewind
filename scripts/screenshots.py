@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Take the README screenshots of the Rewind app with Playwright + Chromium.
 
-    python scripts/screenshots.py            # builds /tmp/rewind-demo, starts the app, writes docs/app-*.png
+    python scripts/screenshots.py            # builds /tmp/rewind-demo, starts the app, writes docs/app-*.png (light and dark)
 
 Development-only (needs `pip install playwright && playwright install chromium`).
 """
@@ -43,7 +43,6 @@ def main():
 
     shots = [
         ("app-home", "#/", None, "light"),
-        ("app-home-dark", "#/", None, "dark"),
         ("app-folder", "#/f/%s" % web, None, "light"),
         ("app-go-back", "#/f/%s" % web, "goback", "light"),
         ("app-recover", "#/f/%s/deleted" % web, None, "light"),
@@ -55,6 +54,9 @@ def main():
         ("app-onboarding", "#/welcome", None, "light"),
         ("app-onboarding-tools", "#/welcome/2/%s" % web, None, "light"),
     ]
+    # Every screen in both themes: the README name keeps its original theme, the other gets a suffix.
+    shots = [x for name, h, act, theme in shots for x in (
+        (name, h, act, theme), (name + ("-dark" if theme == "light" else "-light"), h, act, "dark" if theme == "light" else "light"))]
     only = set(sys.argv[1:])
     errors = []
     try:
@@ -70,7 +72,8 @@ def main():
                 page.on("pageerror", lambda e: errors.append("%s: %s" % (name, e)))
                 page.add_init_script("localStorage.setItem('rewind.theme', %r)" % theme)
                 page.goto("%s/?%s%s" % (base, query, hash_))
-                page.wait_for_timeout(1200)
+                page.evaluate("document.fonts.ready")
+                page.wait_for_timeout(1400)
                 if action == "goback":
                     page.click("[data-preset='1h']")
                     page.wait_for_timeout(1200)

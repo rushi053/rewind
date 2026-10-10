@@ -538,6 +538,8 @@ def make_handler(api, token):
     app_html = (STATIC / "app.html").read_bytes()
     ui_html = (STATIC / "ui.html").read_bytes()
     icon = (STATIC / "icon-32.png").read_bytes()
+    from .ui import FONT_CACHE, load_fonts
+    fonts = load_fonts()
     from .ui import Api as TimelineApi
 
     class Handler(BaseHTTPRequestHandler):
@@ -556,17 +558,17 @@ def make_handler(api, token):
                 return True
             return bool(re.match(r"^http://(127\.0\.0\.1|localhost)(:\d+)?$", origin))
 
-        def _send(self, code, body, ctype="application/json", frame=False):
+        def _send(self, code, body, ctype="application/json", frame=False, cache=None):
             data = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
             self.send_response(code)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
+            self.send_header("Cache-Control", cache or "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
             self.send_header("Content-Security-Policy",
                              "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-                             "connect-src 'self'; img-src 'self' data:; frame-src 'self'; frame-ancestors %s"
+                             "connect-src 'self'; img-src 'self' data:; font-src 'self'; frame-src 'self'; frame-ancestors %s"
                              % ("'self'" if frame else "'none'"))
             self.end_headers()
             self.wfile.write(data)
@@ -595,6 +597,11 @@ def make_handler(api, token):
                 return self._send(403, {"error": "bad host"})
             if url.path == "/favicon.png":
                 return self._send(200, icon, "image/png")
+            if url.path.startswith("/fonts/"):
+                font = fonts.get(url.path[len("/fonts/"):])
+                if font is None:
+                    return self._send(404, {"error": "not found"})
+                return self._send(200, font, "font/woff2", cache=FONT_CACHE)
             if url.path in ("/", "/ui"):
                 if not self._authorized(q):
                     return self._send(403, b"Forbidden. Open Rewind with the `rewind app` command or its launcher.", "text/plain")

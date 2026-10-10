@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+- Refreshed the app's look: bundled Geist and Geist Mono (SIL OFL 1.1, in `static/fonts/`, served locally with long-lived caching, so the app still works offline), a tuned neutral palette with one accent and a first-class dark theme, consistent spacing, radii, borders and soft shadows, refined 1.5px icons, status pills, empty states and focus rings.
+- Calm motion throughout: page and tab transitions, staggered lists, a sliding sidebar and tab indicator, springy switches and checkboxes, a modal that scales in over a blurred backdrop, skeleton loading states, toasts with icons, slider feedback, an animated theme switch, and a check-mark confirmation after Undo, Redo and Go back. All of it is turned off under "reduce motion".
+- The timeline view (`rewind ui`, and the Timeline tab) matches the new design.
+- Accessibility: switches report their state (`role="switch"`), dialogs keep focus inside and return it on close, and status text meets AA contrast in both themes.
+- `scripts/screenshots.py` now writes every screen in light and dark; new `scripts/record-motion.py` records `docs/app-motion.mp4`.
+
 ## [0.2.0] - 2026-10-10
 
 The Rewind app, for people who never open a terminal, and integration with AI tools through MCP.

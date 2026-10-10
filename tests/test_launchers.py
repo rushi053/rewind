@@ -139,3 +139,10 @@ def test_static_launchers_in_repo():
     assert "rewind app" in (d / "Rewind.bat").read_text()
     assert 'Run "rewind app", 0, False' in (d / "Rewind.vbs").read_text()
     assert "Exec=rewind app" in (d / "rewind.desktop").read_text()
+
+
+def test_bundled_fonts_ship_with_their_license():
+    fonts = ROOT / "src" / "rewind_cli" / "static" / "fonts"
+    for name in ("Geist-Variable.woff2", "GeistMono-Variable.woff2"):
+        assert (fonts / name).read_bytes()[:4] == b"wOF2"
+    assert "SIL Open Font License" in (fonts / "LICENSE-Geist.txt").read_text()

@@ -91,6 +91,12 @@ def test_pages_and_api_require_token_and_local_host(client):
     code, body, headers = client.get("/ui?f=abc&embed=1&t=" + client.token, token=False)
     assert code == 200 and "frame-ancestors 'self'" in headers["Content-Security-Policy"]
     assert client.get("/favicon.png", token=False)[0] == 200
+    code, body, headers = client.get("/fonts/Geist-Variable.woff2", token=False)
+    assert code == 200 and body[:4] == b"wOF2" and headers["Content-Type"] == "font/woff2"
+    assert "immutable" in headers["Cache-Control"]
+    assert client.get("/fonts/GeistMono-Variable.woff2", token=False)[0] == 200
+    assert client.get("/fonts/../app.py", token=False)[0] == 404
+    assert "font-src 'self'" in client.get("/?t=" + client.token, token=False)[2]["Content-Security-Policy"]
     assert client.get("/api/state", token=False)[0] == 403
     assert client.get("/api/state?t=" + client.token, token=False)[0] == 403  # query token is not enough for the API
     assert client.get("/api/state", headers={"Host": "evil.example:80"})[0] == 403

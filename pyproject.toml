@@ -47,6 +47,8 @@ Changelog = "https://github.com/rushi053/rewind/blob/main/CHANGELOG.md"
 path = "src/rewind_cli/__init__.py"
 
 [tool.hatch.build.targets.wheel]
+# Ships everything in src/rewind_cli, including static/ (app.html, ui.html, icons,
+# and the bundled Geist fonts in static/fonts/ with their OFL license).
 packages = ["src/rewind_cli"]
 
 [tool.hatch.build.targets.sdist]

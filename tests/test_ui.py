@@ -96,3 +96,14 @@ def test_api_errors_are_json(server):
         get(base + "/api/snapshot?id=999", token)
     assert e.value.code == 400
     assert "no snapshot" in json.loads(e.value.read())["error"]
+
+
+def test_bundled_fonts_are_served_offline(server):
+    base, _, _ = server
+    status, body = get(base + "/fonts/Geist-Variable.woff2")
+    assert status == 200 and body[:4] == b"wOF2"
+    status, body = get(base + "/fonts/GeistMono-Variable.woff2")
+    assert status == 200 and body[:4] == b"wOF2"
+    with pytest.raises(urllib.error.HTTPError) as e:
+        get(base + "/fonts/nope.woff2")
+    assert e.value.code == 404

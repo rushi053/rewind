@@ -15,6 +15,17 @@ from .scan import scan
 from .store import RewindError
 
 STATIC = Path(__file__).with_name("static") / "ui.html"
+FONT_DIR = Path(__file__).with_name("static") / "fonts"
+# Fonts are versioned with the package, so the browser may keep them for a year.
+FONT_CACHE = "public, max-age=31536000, immutable"
+
+
+def load_fonts():
+    """The bundled .woff2 files (Geist, SIL OFL 1.1), keyed by file name."""
+    try:
+        return {p.name: p.read_bytes() for p in FONT_DIR.glob("*.woff2")}
+    except OSError:
+        return {}
 
 
 def _change_json(c):
@@ -92,6 +103,7 @@ class Api:
 
 def make_handler(api, token, port_holder):
     html = STATIC.read_bytes()
+    fonts = load_fonts()
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "rewind/" + __version__
@@ -103,16 +115,16 @@ def make_handler(api, token, port_holder):
             host = (self.headers.get("Host") or "").split(":")[0]
             return host in ("127.0.0.1", "localhost")
 
-        def _send(self, code, body, ctype="application/json"):
+        def _send(self, code, body, ctype="application/json", cache=None):
             data = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
             self.send_response(code)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
+            self.send_header("Cache-Control", cache or "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
             self.send_header("Content-Security-Policy",
-                             "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:")
+                             "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; font-src 'self'")
             self.end_headers()
             self.wfile.write(data)
 
@@ -125,6 +137,11 @@ def make_handler(api, token, port_holder):
             q = parse_qs(url.query)
             if not self._host_ok():
                 return self._send(403, {"error": "bad host"})
+            if url.path.startswith("/fonts/"):
+                font = fonts.get(url.path[len("/fonts/"):])
+                if font is None:
+                    return self._send(404, {"error": "not found"})
+                return self._send(200, font, "font/woff2", cache=FONT_CACHE)
             if url.path == "/":
                 if not self._authorized(q):
                     return self._send(403, b"Forbidden: open the URL printed by `rewind ui`.", "text/plain")
