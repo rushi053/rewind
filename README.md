@@ -28,7 +28,7 @@ Every restore takes a safety snapshot first, so an undo can itself be undone (`r
 Other ways to install: `uvx rewind-cli` runs it without installing, and there is a one-line installer that picks uv, pipx or pip:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/rewind-cli/rewind/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/rushi053/rewind/main/install.sh | sh
 ```
 
 (Rewind's own seatbelt flags `curl | sh`. [Read the script](install.sh) first; it is 50 lines.)

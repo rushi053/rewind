@@ -5,7 +5,7 @@ Thanks for helping. Rewind is small on purpose: one Python package, standard lib
 ## Setup
 
 ```sh
-git clone https://github.com/rewind-cli/rewind && cd rewind
+git clone https://github.com/rushi053/rewind && cd rewind
 python -m venv .venv && . .venv/bin/activate
 pip install -e . pytest
 pytest

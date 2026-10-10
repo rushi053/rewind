@@ -1,13 +1,13 @@
 #!/bin/sh
 # Rewind installer: installs the `rewind` CLI with uv, pipx, or pip (in that order).
 #
-#   curl -fsSL https://raw.githubusercontent.com/rewind-cli/rewind/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/rushi053/rewind/main/install.sh | sh
 #
 # (Yes, Rewind's own seatbelt flags `curl | sh`. Read this script first; it is short.)
 #
 # Environment:
 #   REWIND_VERSION   install a specific version, e.g. 0.1.0
-#   REWIND_SOURCE    install from somewhere else, e.g. git+https://github.com/rewind-cli/rewind
+#   REWIND_SOURCE    install from somewhere else, e.g. git+https://github.com/rushi053/rewind
 set -eu
 
 pkg="rewind-cli"

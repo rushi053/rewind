@@ -39,9 +39,9 @@ dev = ["pytest>=7"]
 rewind = "rewind_cli.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/rewind-cli/rewind"
-Issues = "https://github.com/rewind-cli/rewind/issues"
-Changelog = "https://github.com/rewind-cli/rewind/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/rushi053/rewind"
+Issues = "https://github.com/rushi053/rewind/issues"
+Changelog = "https://github.com/rushi053/rewind/blob/main/CHANGELOG.md"
 
 [tool.hatch.version]
 path = "src/rewind_cli/__init__.py"

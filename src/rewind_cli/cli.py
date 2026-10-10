@@ -52,7 +52,7 @@ be rolled back in one command.
   rewind back 15m -y
   rewind recover .env
 
-Run `rewind <command> --help` for details. Docs: https://github.com/rewind-cli/rewind
+Run `rewind <command> --help` for details. Docs: https://github.com/rushi053/rewind
 """
 
 
