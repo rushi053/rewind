@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rewind-cli"
+dynamic = ["version"]
+description = "An undo button for AI coding agents: snapshots every file (untracked files and .git included) so any agent change can be rolled back."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Rewind contributors" }]
+keywords = ["ai", "agents", "claude-code", "codex", "cursor", "gemini-cli", "undo", "snapshot", "backup", "time-machine", "safety"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Topic :: System :: Archiving :: Backup",
+    "Topic :: Utilities",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+rewind = "rewind_cli.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/rewind-cli/rewind"
+Issues = "https://github.com/rewind-cli/rewind/issues"
+Changelog = "https://github.com/rewind-cli/rewind/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "src/rewind_cli/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rewind_cli"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "README.md", "LICENSE", "CHANGELOG.md", "pyproject.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
