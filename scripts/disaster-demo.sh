@@ -10,12 +10,15 @@ cd "$WORK"
 
 say() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 
+sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi | cut -d' ' -f1; }
+mode() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }
+
 fingerprint() {
-  # sha256 of every file except the rewind store, sorted, plus file modes
+  # hash of every file except the rewind store: path, mode and content (symlinks by target)
   find . -path ./.rewind -prune -o \( -type f -o -type l \) -print | LC_ALL=C sort | while read -r f; do
     if [ -L "$f" ]; then printf 'L %s -> %s\n' "$f" "$(readlink "$f")"
-    else printf '%s %s %s\n' "$(stat -c %a "$f" 2>/dev/null || stat -f %Lp "$f")" "$(sha256sum "$f" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$f" | cut -d' ' -f1)" "$f"; fi
-  done | sha256sum | cut -d' ' -f1
+    else printf '%s %s %s\n' "$(mode "$f")" "$(sha "$f")" "$f"; fi
+  done | sha
 }
 
 say "Setting up a project with committed, uncommitted and untracked work"
