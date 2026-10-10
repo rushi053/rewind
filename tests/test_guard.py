@@ -85,6 +85,8 @@ DANGEROUS = [
     ("echo y | xargs rm -rf ~", "rm-home"),
     ("git status\ngit reset --hard", "git-reset-hard"),
     ("cd .. && rm -rf proj", "rm-project"),
+    ("rm -rf .rewind", "rm-rewind-store"),
+    ("rm -rf ~/.rewind/projects", "rm-rewind-store"),
     ("cd src && rm -rf ../..", "rm-outside"),
 ]
 

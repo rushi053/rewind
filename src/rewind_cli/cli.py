@@ -671,7 +671,19 @@ def cmd_gc(args):
     from .gc import run_gc
 
     repo = _repo()
-    res = run_gc(repo, dry_run=args.dry_run)
+    preview = run_gc(repo, dry_run=True)
+    if not preview["snapshots_deleted"] and not preview["objects_deleted"]:
+        print("Nothing to collect: %d snapshots, all within the retention policy." % preview["snapshots_total"])
+        return 0
+    if args.dry_run:
+        res = preview
+    else:
+        print("Retention policy would delete %d of %d snapshots (%s)." % (
+            preview["snapshots_deleted"], preview["snapshots_total"], term.size(preview["bytes_freed"])))
+        if not _confirm("Delete them?", args.yes):
+            print("Aborted.")
+            return 1
+        res = run_gc(repo)
     verb = "Would delete" if args.dry_run else "Deleted"
     print("%s %d of %d snapshots and %d objects, %s %s." % (
         verb, res["snapshots_deleted"], res["snapshots_total"], res["objects_deleted"],
@@ -688,18 +700,21 @@ def cmd_status(args):
     repo = _repo()
     ids = repo.snapshot_ids()
     count, nbytes = repo.store_size()
-    print("%s  %s" % (term.bold("project"), repo.root))
-    print("%s    %s%s" % (term.bold("store"), repo.store, term.dim("  (global)") if repo.is_global else ""))
-    print("%s     %d objects, %s" % (term.bold("size"), count, term.size(nbytes)))
-    print("%s %d snapshots, %d sessions" % (term.bold("history"), len(ids), len(repo.list_sessions())))
+    def row(label, value):
+        print("%s %s" % (term.bold(label.ljust(8)), value))
+
+    row("project", repo.root)
+    row("store", "%s%s" % (repo.store, term.dim("  (global)") if repo.is_global else ""))
+    row("size", "%d objects, %s" % (count, term.size(nbytes)))
+    row("history", "%d snapshots, %d sessions" % (len(ids), len(repo.list_sessions())))
     pid = daemon_pid(repo)
-    print("%s  %s" % (term.bold("watcher"), term.green("running (pid %d)" % pid) if pid else term.dim("off")))
+    row("watcher", term.green("running (pid %d)" % pid) if pid else term.dim("off"))
     hooks = [a for a in AGENTS if installed(repo.root, a)]
-    print("%s    %s" % (term.bold("hooks"), ", ".join(hooks) if hooks else term.dim("none")))
+    row("hooks", ", ".join(hooks) if hooks else term.dim("none"))
     if not ids:
         return 0
     head = repo.get_snapshot(ids[-1])
-    print("%s   #%d  %s" % (term.bold("latest"), head["id"], term.dim(term.ago(head["time"]))))
+    row("latest", "#%d  %s" % (head["id"], term.dim(term.ago(head["time"]))))
     changes = diff_manifests(repo.snapshot_files(head), scan(repo).files)
     print()
     if not changes:
@@ -972,7 +987,8 @@ def build_parser():
     p.set_defaults(func=cmd_ui)
 
     p = _sub(subs, "gc", "Apply the retention policy and delete unreferenced data", "  rewind gc --dry-run")
-    p.add_argument("-n", "--dry-run", action="store_true")
+    p.add_argument("-n", "--dry-run", action="store_true", help="show what would be deleted")
+    p.add_argument("-y", "--yes", action="store_true", help="don't ask for confirmation")
     p.set_defaults(func=cmd_gc)
 
     p = _sub(subs, "status", "Show store info and changes since the latest snapshot")

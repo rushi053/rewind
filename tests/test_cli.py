@@ -170,7 +170,7 @@ def test_hook_cli(project, cli):
 def test_gc_and_doctor(project, cli):
     project.capture()
     code, out, _ = cli("gc", "--dry-run")
-    assert "Would delete 0 of 1" in out
+    assert "Nothing to collect" in out
     code, out, _ = cli("doctor", "--full")
     assert code == 0 and "No problems found" in out
     # corrupt an object and doctor notices
@@ -215,3 +215,20 @@ def test_hook_exec_via_subprocess(project):
         {"session_id": "x", "cwd": str(project.root), "tool_name": "Bash", "tool_input": {"command": "rm -rf ~"}}))
     assert res.returncode == 2
     assert "home directory" in res.stderr
+
+
+def test_gc_cli_applies_retention_with_confirmation(project, cli, monkeypatch):
+    from rewind_cli.store import write_json
+
+    project.capture()
+    write(project, "a.txt", "a")
+    project.capture()
+    meta = project.get_snapshot(1)
+    meta["time"] -= 90 * 86400
+    write_json(project.snap_path(1), meta)
+    monkeypatch.setattr(sys, "stdin", open(os.devnull))
+    code, out, err = cli("gc")
+    assert code == 1 and "-y" in err and project.snapshot_ids() == [1, 2]
+    code, out, _ = cli("gc", "-y")
+    assert code == 0 and "Deleted 1 of 2" in out
+    assert project.snapshot_ids() == [2]

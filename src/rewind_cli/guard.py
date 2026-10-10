@@ -22,6 +22,7 @@ RULES = {
     "rm-outside": (HIGH, "rm -r on a path outside the project"),
     "rm-project": (HIGH, "rm -r of the whole project directory"),
     "rm-git-dir": (HIGH, "deleting the .git directory"),
+    "rm-rewind-store": (HIGH, "deleting Rewind's own snapshot store"),
     "rm-variable": (HIGH, "rm -r on an unexpanded variable (empty variable = rm -rf /)"),
     "delete-env": (HIGH, "deleting a .env file"),
     "overwrite-env": (HIGH, "overwriting an existing .env file"),
@@ -194,6 +195,8 @@ def _check_rm(args, ctx, out):
             out.append(Finding("rm-root", t))
         elif target == ctx.home:
             out.append(Finding("rm-home", t))
+        elif os.path.basename(target) == ".rewind" or (os.sep + ".rewind" + os.sep) in target + os.sep:
+            out.append(Finding("rm-rewind-store", t))
         elif ctx.inside(target, ctx.root) and (os.path.basename(target) == ".git" or (os.sep + ".git" + os.sep) in target + os.sep):
             out.append(Finding("rm-git-dir", t))
         elif target == ctx.root:
