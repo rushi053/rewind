@@ -82,6 +82,11 @@ def test_undo_session_restores_everything(project):
     assert read(project, ".env") == "SECRET=abc\n"
     assert read(project, ".git/HEAD") == "ref: refs/heads/main\n"
     assert not (project.root / "trash.txt").exists()
+    restore.redo(project)
+    assert read(project, "src/app.py") == "rewritten"
+    assert (project.root / "trash.txt").exists()
+    assert not (project.root / ".env").exists()
+    assert not (project.root / ".git").exists()
 
 
 def test_undo_session_without_sessions(project):

@@ -2,6 +2,7 @@
 
 import json
 import secrets
+import socketserver
 import sys
 import threading
 import webbrowser
@@ -184,10 +185,25 @@ def make_handler(api, token, port_holder):
     return Handler
 
 
+class LoopbackServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer that does not reverse-resolve 127.0.0.1.
+
+    ``HTTPServer.server_bind`` calls ``socket.getfqdn("127.0.0.1")``. On macOS
+    that lookup goes to DNS and can block long enough that ``rewind app`` gives
+    up waiting for the server. The name is unused: the server is loopback only.
+    """
+
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = host
+        self.server_port = port
+
+
 def make_server(repo, port=0):
     token = secrets.token_urlsafe(24)
     holder = {}
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(Api(repo), token, holder))
+    server = LoopbackServer(("127.0.0.1", port), make_handler(Api(repo), token, holder))
     server.daemon_threads = True
     url = "http://127.0.0.1:%d/?t=%s" % (server.server_address[1], token)
     return server, url, token

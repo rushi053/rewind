@@ -23,7 +23,7 @@ def load(path):
 
 # ---------------------------------------------------------------- MCP configs
 def test_claude_desktop_merges_into_existing_config_with_backup(fake_home):
-    cfg = fake_home / ".config" / "Claude" / "claude_desktop_config.json"
+    cfg = integrations.claude_desktop_config_path()
     cfg.parent.mkdir(parents=True)
     original = {"mcpServers": {"github": {"command": "gh-mcp", "args": ["--x"]}}, "globalShortcut": "Ctrl+Space"}
     cfg.write_text(json.dumps(original))
@@ -75,7 +75,7 @@ def test_vscode_uses_servers_key_type_and_workspace_folder(tmp_path, fake_home):
     assert data["servers"]["rewind"]["type"] == "stdio"
     assert data["servers"]["rewind"]["args"][-3:] == ["mcp", "--folder", "${workspaceFolder}"]
     user = integrations.plan("vscode", "mcp", "global")
-    assert user.path == fake_home / ".config" / "Code" / "User" / "mcp.json"
+    assert user.path == integrations.vscode_user_dir() / "mcp.json"
     assert "--folder" not in integrations.mcp_entry("vscode", "global")["args"]
 
 
@@ -187,7 +187,7 @@ def test_detect_and_overview(fake_home, tmp_path, monkeypatch):
     monkeypatch.setattr(integrations.shutil, "which", lambda name: None)
     assert not integrations.detect("cursor")
     (fake_home / ".cursor").mkdir()
-    (fake_home / ".config" / "Claude").mkdir(parents=True)
+    integrations.claude_desktop_config_path().parent.mkdir(parents=True)
     assert integrations.detect("cursor") and integrations.detect("claude-desktop") and not integrations.detect("codex")
     folder = tmp_path / "proj"
     folder.mkdir()

@@ -268,8 +268,23 @@ def undo_session(repo, session_id=None, dry_run=False):
         dry_run,
     )
     if not dry_run and res.plan:
-        _clear_undo(repo)
+        _remember_undo(repo, start, res.safety_id, res.post_id)
     return sess, res
+
+
+def _remember_undo(repo, cursor, safety_id, post_id):
+    """Record a restore so ``redo`` can put the pre-restore tree back.
+
+    ``undo`` keeps a stack. Session undo is one step: the safety snapshot taken
+    just before the files were rewritten.
+    """
+    if not safety_id or not post_id:
+        _clear_undo(repo)
+        return
+    post = repo.get_snapshot(post_id)
+    st = repo.state()
+    st["undo"] = {"cursor": cursor, "after": post["manifest"], "stack": [[safety_id, None]]}
+    repo.save_state(st)
 
 
 def snapshot_before(repo, ts):

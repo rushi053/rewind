@@ -53,7 +53,11 @@ SYSTEM_DIRS = {
     "/sbin", "/srv", "/sys", "/usr", "/var", "/Applications", "/Library", "/System", "/Users",
     "/Volumes", "/private", "/private/etc", "/private/var",
 }
-WRAPPERS = {"sudo", "doas", "command", "builtin", "exec", "nohup", "time", "nice", "ionice", "stdbuf", "env", "xargs", "timeout", "caffeinate"}
+WRAPPERS = {"sudo", "doas", "command", "builtin", "exec", "nohup", "time", "nice", "ionice", "stdbuf", "env", "xargs", "timeout", "caffeinate", "busybox", "toybox"}
+_PY = re.compile(r"^python(\d+(\.\d+)*)?$")
+_PERL = re.compile(r"^perl(\d+(\.\d+)*)?$")
+_RUBY = re.compile(r"^ruby(\d+(\.\d+)*)?$")
+_NODE = re.compile(r"^(node|nodejs)(\d+(\.\d+)*)?$")
 SHELLS = {"sh", "bash", "zsh", "dash", "ksh", "fish"}
 INTERPRETERS = SHELLS | {"python", "python3", "perl", "ruby", "node", "deno", "bun"}
 SEPARATORS = {";", "&&", "||", "|", "&", "|&", "(", ")", ";;", "\n"}
@@ -272,6 +276,95 @@ def _check_redirects(tokens, ctx, out):
                 out.append(Finding("overwrite-env", target))
 
 
+def _option_script(args, flags):
+    """Argument of ``-c`` / ``-e`` (``flags`` is a set of full tokens like ``{"-c"}``)."""
+    letters = {f[1] for f in flags}
+    for i, a in enumerate(args):
+        if a in flags and i + 1 < len(args):
+            return args[i + 1]
+        if len(a) > 2 and a[0] == "-" and not a.startswith("--") and a[1] in letters:
+            return a[2:]
+    return None
+
+
+def _rescan(text, ctx, out, depth):
+    if text and depth < 4:
+        out.extend(check(text, ctx.cwd, ctx.root, depth=depth + 1, home=ctx.home))
+
+
+def _flag_tree(path, ctx, out):
+    _check_rm(["-rf", path], ctx, out)
+
+
+def _flag_file(path, ctx, out):
+    """``os.remove`` / ``unlink`` of one path. Ordinary files are allowed.
+
+    ``.env``, ``/``, the home directory, ``.git`` and ``.rewind`` are not.
+    """
+    _check_rm([path], ctx, out)
+    if re.match(r"^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$", path) and path not in ("$HOME", "${HOME}"):
+        out.append(Finding("rm-variable", path))
+        return
+    target = ctx.resolve(path.rstrip("/") or "/")
+    if target == "/" or target in SYSTEM_DIRS:
+        out.append(Finding("rm-root", path))
+    elif target == ctx.home or path in ("~", "~/"):
+        out.append(Finding("rm-home", path))
+    elif os.path.basename(target) == ".git" or (os.sep + ".git" + os.sep) in target + os.sep:
+        out.append(Finding("rm-git-dir", path))
+    elif os.path.basename(target) == ".rewind" or (os.sep + ".rewind" + os.sep) in target + os.sep:
+        out.append(Finding("rm-rewind-store", path))
+
+
+def _scan_script(kind, script, ctx, out, depth):
+    """Look through a ``python -c`` / ``perl -e`` / similar one-liner.
+
+    This is still a heuristic. A script in a file, or a call built from
+    variables, is invisible here; Rewind snapshots before the command anyway.
+    """
+    if not script or depth >= 4:
+        return
+    quoted = r"""(?P<q>['\"])(?P<path>.*?)(?P=q)"""
+    if kind == "python":
+        for m in re.finditer(r"shutil\.rmtree\s*\(\s*(?:r)?" + quoted, script):
+            _flag_tree(m.group("path"), ctx, out)
+        if re.search(r"shutil\.rmtree\s*\(\s*os\.path\.expanduser\s*\(\s*['\"]~", script):
+            out.append(Finding("rm-home", "shutil.rmtree(~)"))
+        if re.search(r"shutil\.rmtree\s*\(\s*(?:os\.environ(?:\.get)?\s*\(\s*['\"]HOME['\"]|pathlib\.Path\.home\s*\(\s*\)|Path\.home\s*\(\s*\))", script):
+            out.append(Finding("rm-home", "shutil.rmtree(home)"))
+        if re.search(r"shutil\.rmtree\s*\(\s*(?:os\.getcwd\s*\(\s*\)|Path\.cwd\s*\(\s*\))", script):
+            out.append(Finding("rm-project", "shutil.rmtree(cwd)"))
+        for m in re.finditer(r"os\.(?:remove|unlink)\s*\(\s*(?:r)?" + quoted, script):
+            _flag_file(m.group("path"), ctx, out)
+        for m in re.finditer(r"os\.(?:system|popen)\s*\(\s*(?:r)?" + quoted, script):
+            _rescan(m.group("path"), ctx, out, depth)
+        for m in re.finditer(r"subprocess\.(?:run|call|check_call|check_output|Popen)\s*\(\s*\[(.*?)\]", script, re.S):
+            parts = re.findall(r"""['\"]([^'\"]+)['\"]""", m.group(1))
+            if parts:
+                check_segment(parts, ctx, out, depth + 1)
+        for m in re.finditer(r"subprocess\.(?:run|call|check_call|check_output|Popen)\s*\(\s*" + quoted, script):
+            _rescan(m.group("path"), ctx, out, depth)
+    elif kind == "perl":
+        for m in re.finditer(r"(?:system|exec)\s*\(?\s*" + quoted, script):
+            _rescan(m.group("path"), ctx, out, depth)
+        for m in re.finditer(r"(?:unlink|remove_tree|rmtree)\s*\(?\s*" + quoted, script):
+            _flag_file(m.group("path"), ctx, out) if "unlink" in m.group(0) else _flag_tree(m.group("path"), ctx, out)
+    elif kind == "ruby":
+        for m in re.finditer(r"(?:system|exec)\s*\(?\s*" + quoted, script):
+            _rescan(m.group("path"), ctx, out, depth)
+        for m in re.finditer(r"(?:rm_rf|rm_r|remove_entry_secure)\s*\(?\s*" + quoted, script):
+            _flag_tree(m.group("path"), ctx, out)
+    elif kind == "node":
+        for m in re.finditer(r"(?:fs|require\(\s*(?P<fq>['\"])fs(?P=fq)\s*\))\.rm(?:dir)?Sync\s*\(\s*" + quoted, script):
+            window = script[m.end():m.end() + 60]
+            if "recursive" in window:
+                _flag_tree(m.group("path"), ctx, out)
+            else:
+                _flag_file(m.group("path"), ctx, out)
+        for m in re.finditer(r"(?:execSync|exec)\s*\(\s*" + quoted, script):
+            _rescan(m.group("path"), ctx, out, depth)
+
+
 def check_segment(tokens, ctx, out, depth=0):
     _check_redirects(tokens, ctx, out)
     toks = _strip_wrappers([t for t in tokens if t not in (">", ">>", "<", ">|")])
@@ -291,6 +384,21 @@ def check_segment(tokens, ctx, out, depth=0):
                     break
         if script and depth < 4:
             out.extend(check(script, ctx.cwd, ctx.root, depth=depth + 1, home=ctx.home))
+        return name
+    # One-liners hide `rm` inside a string. Scan the obvious ones; a script
+    # file is still invisible (the seatbelt is a heuristic, and Rewind
+    # snapshots before the command either way).
+    if _PY.match(name):
+        _scan_script("python", _option_script(args, {"-c"}), ctx, out, depth)
+        return name
+    if _PERL.match(name):
+        _scan_script("perl", _option_script(args, {"-e", "-E"}), ctx, out, depth)
+        return name
+    if _RUBY.match(name):
+        _scan_script("ruby", _option_script(args, {"-e"}), ctx, out, depth)
+        return name
+    if _NODE.match(name):
+        _scan_script("node", _option_script(args, {"-e"}), ctx, out, depth)
         return name
     if name == "cd":
         # track directory changes so `cd .. && rm -rf project` is understood

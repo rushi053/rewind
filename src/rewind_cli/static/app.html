@@ -810,15 +810,16 @@ function pickerHtml() {
       <div class="browser"><div class="crumbs" id="pkCrumbs"><span class="skel" style="width:180px;margin:6px"></span></div><div class="dirs list" id="pkDirs">${skelRows(4, { sm: true })}</div></div>
       <details class="more" id="pkMore"><summary>Where Rewind keeps the saved copies</summary>
         <div class="radio-cards" style="margin-top:12px">
-          <button class="radio-card on" data-store="local" type="button"><span class="rc"></span><span><div class="t">Inside the folder</div><div class="d">In a hidden <code>.rewind</code> folder that Git ignores. Simple and portable.</div></span></button>
-          <button class="radio-card" data-store="global" type="button"><span class="rc"></span><span><div class="t">In your home folder</div><div class="d">In <code>~/.rewind</code>, out of reach of tools working in the project.</div></span></button>
-        </div></details>
+          <button class="radio-card on" data-store="global" type="button"><span class="rc"></span><span><div class="t">In your home folder</div><div class="d">Default. In <code>~/.rewind</code>, out of reach of tools working in the project.</div></span></button>
+          <button class="radio-card" data-store="local" type="button"><span class="rc"></span><span><div class="t">Inside the folder</div><div class="d">Opt in. A hidden <code>.rewind</code> folder that Git ignores. Portable, and inside the tree an agent can read.</div></span></button>
+        </div>
+        <p class="sub" style="margin:10px 0 0">Snapshots of <code>.env</code> are plaintext copies on this machine, not encrypted.</p></details>
     </div>
     <div class="pickbar"><div class="grow"><div class="when-label">Selected folder</div><div class="mono" id="pkSel" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div><div class="check-msg" id="pkMsg"></div></div>
       <button class="btn primary lg" id="pkProtect" disabled>${ic("shield")}Protect this folder</button></div></div>`;
 }
 function mountPicker(root, onAdded) {
-  let cur = null, globalStore = false;
+  let cur = null, globalStore = true;
   const browse = async (path) => {
     try {
       const d = await api("/api/fs?path=" + encodeURIComponent(path || "") + ($("#pkHidden", root).checked ? "&hidden=1" : ""));

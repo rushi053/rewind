@@ -48,7 +48,16 @@ def test_init_snap_log_status(cli, tmp_path, monkeypatch):
     code, out, _ = cli("init", "--no-hooks")
     assert code == 0 and "Initialized" in out
     assert (root / ".rewindignore").exists()
-    assert (root / ".rewind" / ".gitignore").read_text().strip().endswith("*")
+    assert "plaintext" in out and "not encrypted" in out
+    assert not (root / ".rewind").exists()
+    code, out, err = cli("init", "--local", "--global", "--no-hooks")
+    assert code == 2
+    local = tmp_path / "local"
+    local.mkdir()
+    monkeypatch.chdir(local)
+    code, out, _ = cli("init", "--local", "--no-hooks")
+    assert code == 0 and (local / ".rewind" / ".gitignore").read_text().strip().endswith("*")
+    monkeypatch.chdir(root)
     code, out, _ = cli("snap")
     assert "Nothing changed" in out
     (root / "a.txt").write_text("b\n")
@@ -189,9 +198,26 @@ def test_run_wraps_command_as_session(project, cli):
     sess = project.get_session("s1")
     assert sess["name"] == "fake-agent" and sess["exit_code"] == 0 and sess["end_snapshot"]
     code, out, _ = cli("undo", "--session", "-y")
-    assert code == 0
+    assert code == 0 and "redo" in out
     assert not (project.root / "made.txt").exists()
     assert read(project, "README.md") == "# demo\n"
+    code, out, _ = cli("redo", "-y")
+    assert code == 0
+    assert (project.root / "made.txt").read_text() == "x"
+    assert not (project.root / "README.md").exists()
+
+
+def test_oops_previews_then_undoes_the_session(project, cli):
+    project.capture()
+    script = "import pathlib; pathlib.Path('made.txt').write_text('x')"
+    code, _, _ = cli("run", "--name", "fake-agent", "--", sys.executable, "-c", script)
+    assert code == 0 and (project.root / "made.txt").exists()
+    code, out, _ = cli("oops", "--dry-run")
+    assert code == 0 and "dry run" in out and (project.root / "made.txt").exists()
+    code, out, _ = cli("oops", "-y")
+    assert code == 0 and "undone" in out.lower() and not (project.root / "made.txt").exists()
+    code, out, _ = cli("redo", "-y")
+    assert code == 0 and (project.root / "made.txt").read_text() == "x"
 
 
 def test_run_propagates_exit_code_and_missing_command(project, cli):

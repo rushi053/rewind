@@ -5,7 +5,7 @@
 #   scripts/build-macos-app.sh ~/Applications # or somewhere else
 #
 # The bundle is a launcher, not a packaged Python: Rewind itself must already be
-# installed (pipx install rewind-cli). The absolute path of `rewind` is baked in,
+# installed (pipx install "git+https://github.com/rushi053/rewind"). The absolute path of `rewind` is baked in,
 # because apps started from Finder don't see your shell's PATH.
 # The icon is the prebuilt icon.icns shipped in the package (assets/icon.svg is
 # the source; scripts/make-icons.py regenerates it). If it's missing, the 256px
@@ -17,7 +17,7 @@ set -eu
 dest="${1:-dist}"
 rewind_bin="${REWIND_BIN:-$(command -v rewind || true)}"
 if [ -z "$rewind_bin" ]; then
-  echo "build-macos-app: \`rewind\` is not on your PATH. Install it first: pipx install rewind-cli" >&2
+  echo "build-macos-app: \`rewind\` is not on your PATH. Install it first: pipx install \"git+https://github.com/rushi053/rewind\"" >&2
   exit 1
 fi
 case "$rewind_bin" in

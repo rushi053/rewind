@@ -1,0 +1,31 @@
+# Publish rewind-cli to PyPI with trusted publishing.
+#
+# This workflow does not run on pull requests or on pushes to main. It runs
+# only when a tag matching v* is pushed. It still cannot publish until the
+# PyPI project "rewind-cli" lists this repository as a trusted publisher
+# (see the pull request that added this file). Do not tag until that is done.
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish rewind-cli
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: python -m pip install build && python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

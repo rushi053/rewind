@@ -1,4 +1,5 @@
 import os
+import time
 import zlib
 
 import pytest
@@ -161,3 +162,43 @@ def test_stale_lock_is_broken(project):
     (project.store / "lock").write_text("999999999")
     with project.lock:
         pass
+
+
+def test_live_lock_is_not_stolen_when_old(project):
+    lock = project.store / "lock"
+    lock.write_text(str(os.getpid()))
+    old = time.time() - 10000
+    os.utime(lock, (old, old))
+    project.lock.timeout = 0.2
+    with pytest.raises(RewindError, match="locked"):
+        project.lock.acquire()
+    assert lock.read_text() == str(os.getpid())
+
+
+def test_init_defaults_to_home_and_reuses_an_existing_local_store(tmp_path):
+    root = tmp_path / "fresh"
+    root.mkdir()
+    (root / "a.txt").write_text("a")
+    repo = Repo.init(root)
+    assert repo.store_note == "created-home"
+    assert repo.is_global and not (root / ".rewind").exists()
+    assert Repo.find(root).store == repo.store
+    again = Repo.init(root, global_store=False)
+    assert again.store_note == "reused-home" and again.store == repo.store
+
+    local_root = tmp_path / "legacy"
+    local_root.mkdir()
+    store = local_root / ".rewind"
+    (store / "objects").mkdir(parents=True)
+    (store / "snapshots").mkdir()
+    (store / "sessions").mkdir()
+    (store / "project.json").write_text('{"root": "%s", "version": 1}\n' % local_root)
+    (store / "config.json").write_text("{}\n")
+    kept = Repo.init(local_root)
+    assert kept.store_note == "reused-local"
+    assert kept.store == store
+    optin = tmp_path / "optin"
+    optin.mkdir()
+    opted = Repo.init(optin, global_store=False)
+    assert opted.store_note == "created-local"
+    assert (opted.root / ".rewind" / ".gitignore").read_text().strip().endswith("*")

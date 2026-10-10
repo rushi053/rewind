@@ -58,12 +58,14 @@ def test_check_folder_rules(tmp_path, fake_home):
 def test_setup_folder_creates_store_and_ignore(tmp_path):
     root = make_folder(tmp_path)
     repo = registry.setup_folder(root)
-    assert (root / ".rewind" / "project.json").exists()
+    assert repo.is_global and not (root / ".rewind").exists()
+    assert (repo.store / "project.json").exists()
     assert (root / ".rewindignore").exists()
     assert registry.setup_folder(root).store == repo.store  # reuses
-    g = make_folder(tmp_path, "g")
-    repo_g = registry.setup_folder(g, global_store=True)
-    assert repo_g.is_global and not (g / ".rewind").exists()
+    local = make_folder(tmp_path, "local")
+    repo_l = registry.setup_folder(local, global_store=False)
+    assert not repo_l.is_global and (local / ".rewind" / "project.json").exists()
+    assert registry.setup_folder(local, global_store=True).store == repo_l.store  # existing local wins
 
 
 def test_status_of_folder(tmp_path):

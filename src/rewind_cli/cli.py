@@ -26,6 +26,7 @@ be rolled back in one command.
   watch [--daemon]     Auto-snapshot whenever files change
 
 {undo}
+  oops                 Preview, then undo the latest agent session
   undo [--session]     Revert the last change (or the whole last agent session)
   redo                 Re-apply what the last undo reverted
   back <time>          Return the project to how it was, e.g. `back 10m`
@@ -50,7 +51,8 @@ be rolled back in one command.
 {examples}
   rewind init
   rewind run -- claude
-  rewind undo --session        # the agent wrecked things: put it all back
+  rewind oops                  # the agent wrecked things: preview, then put it all back
+  rewind redo                  # that undo was wrong: put the session's result back
   rewind back 15m -y
   rewind recover .env
 
@@ -153,6 +155,7 @@ def cmd_init(args):
         existing = Repo.find(root)
         if os.path.samefile(str(existing.root), root):
             print("Already initialized: %s (store: %s)" % (existing.root, existing.store))
+            print(_secrets_note())
             return 0
     except NotInitialized:
         pass
@@ -172,6 +175,8 @@ def cmd_init(args):
         pass
     print("%s Initialized Rewind in %s" % (term.green(_check()), repo.root))
     print("  store     %s" % repo.store)
+    print("  %s" % _store_note(getattr(repo, "store_note", "")))
+    print("  %s" % _secrets_note())
     print("  snapshot  #%d  %d files, %s  (%.2fs)" % (meta["id"] if meta else 0, len(files), term.size(total), took))
     if meta and meta.get("skipped"):
         print(term.yellow("  skipped   %d file(s) over %s MB -- see `rewind doctor`" % (meta["skipped"], repo.config.get("max_file_size_mb"))))
@@ -612,6 +617,26 @@ def cmd_diff(args):
     return 0
 
 
+def _store_note(note):
+    return {
+        "created-home": "History for new projects lives in ~/.rewind, outside the folder.",
+        "created-local": "History is in .rewind inside this folder (--local).",
+        "reused-local": "Using the existing .rewind store in this folder.",
+        "reused-home": "Using the existing store in ~/.rewind.",
+    }.get(note, "History is kept in the store above.")
+
+
+def _secrets_note():
+    return "Snapshots of .env are plaintext copies on this machine, not encrypted."
+
+
+def cmd_oops(args):
+    """Preview, then undo the latest session. ``rewind redo`` puts that result back."""
+    args.session = "__latest__"
+    args.paths = []
+    return cmd_undo(args)
+
+
 def cmd_undo(args):
     from . import restore
 
@@ -625,7 +650,8 @@ def cmd_undo(args):
         title = "Undo session %s (%s, %s) -> back to #%d:" % (
             sess["id"], sess.get("name") or "", term.ago(sess["started"]), sess["start_snapshot"])
         return _run_restore_flow(lambda: preview, lambda: restore.undo_session(repo, sess["id"])[1], title, args,
-                                 done="Session %s undone, back to #%d" % (sess["id"], sess["start_snapshot"]))
+                                 done="Session %s undone, back to #%d" % (sess["id"], sess["start_snapshot"]),
+                                 redo=True)
     preview = restore.undo(repo, dry_run=True, paths=args.paths)
     if not preview.plan:
         print("Nothing to undo.")
@@ -1025,9 +1051,15 @@ def build_parser():
     parser.add_argument("--version", action="version", version="rewind %s" % __version__)
     subs = parser.add_subparsers(dest="cmd", metavar="<command>")
 
-    p = _sub(subs, "init", "Set up Rewind in this directory", "  rewind init\n  rewind init --hooks claude -y\n  rewind init --global   # keep the store in ~/.rewind instead of ./.rewind")
+    p = _sub(subs, "init", "Set up Rewind in this directory",
+             "  rewind init\n  rewind init --hooks claude -y\n  rewind init --local   # store inside ./.rewind instead of ~/.rewind")
     p.add_argument("path", nargs="?", help="project directory (default: current)")
-    p.add_argument("--global", dest="global_store", action="store_true", help="keep the store in ~/.rewind/projects/<hash>")
+    store = p.add_mutually_exclusive_group()
+    store.add_argument("--global", dest="global_store", action="store_const", const=True,
+                       help="keep the store in ~/.rewind/projects/<hash> (the default for a new project)")
+    store.add_argument("--local", dest="global_store", action="store_const", const=False,
+                       help="keep the store in ./.rewind inside the project")
+    p.set_defaults(global_store=None)
     p.add_argument("--hooks", metavar="AGENTS", help="comma-separated agents to install hooks for")
     p.add_argument("--no-hooks", action="store_true", help="don't offer to install hooks")
     p.add_argument("-y", "--yes", action="store_true", help="install hooks for every detected agent")
@@ -1085,6 +1117,11 @@ def build_parser():
     p.add_argument("--stat", action="store_true", help="only list changed files")
     p.add_argument("-U", "--context", type=int, default=3, help="lines of context")
     p.set_defaults(func=cmd_diff)
+
+    p = _sub(subs, "oops", "Preview, then undo the latest agent session",
+             "  rewind oops\n  rewind oops -y\n  rewind oops --dry-run")
+    _restore_flags(p)
+    p.set_defaults(func=cmd_oops, paths=[])
 
     p = _sub(subs, "undo", "Revert the last change, or a whole agent session", "  rewind undo\n  rewind undo --session        # the latest session\n  rewind undo --session s4 -y\n  rewind undo src/app.py       # only this file")
     p.add_argument("paths", nargs="*", help="limit the undo to these paths")

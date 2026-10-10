@@ -1,18 +1,27 @@
 # Rewind installer for Windows: installs the `rewind` CLI with uv, pipx or pip,
 # then adds Rewind to the Start menu and the Desktop.
 #
-#   irm https://raw.githubusercontent.com/rushi053/rewind/main/install.ps1 | iex
+# Supported install (rewind-cli is not on PyPI yet):
+#   pipx install git+https://github.com/rushi053/rewind
 #
-# (Read it first; it is short.) Environment:
-#   $env:REWIND_VERSION      install a specific version, e.g. 0.2.0
-#   $env:REWIND_SOURCE       install from somewhere else, e.g. git+https://github.com/rushi053/rewind
+# This script does the same install, then adds shortcuts. Read it before
+# piping it into PowerShell.
+#
+# Environment:
+#   $env:REWIND_VERSION      install a tag, e.g. 0.2.0 (git tag v0.2.0; none exist yet)
+#   $env:REWIND_SOURCE       override the package, e.g. rewind-cli once it is published
 #   $env:REWIND_NO_LAUNCHER  set to 1 to skip the shortcuts
 #   $env:REWIND_AUTOSTART    set to 1 to start Rewind when you log in
 $ErrorActionPreference = "Stop"
 
-$pkg = "rewind-cli"
+# rewind-cli is not on PyPI yet. Install from git so this script cannot 404.
+# After the owner publishes, $env:REWIND_SOURCE = "rewind-cli" selects the package.
+$pkg = "git+https://github.com/rushi053/rewind"
 if ($env:REWIND_SOURCE) { $pkg = $env:REWIND_SOURCE }
-elseif ($env:REWIND_VERSION) { $pkg = "rewind-cli==$($env:REWIND_VERSION)" }
+elseif ($env:REWIND_VERSION) {
+    $ver = $env:REWIND_VERSION -replace '^v', ''
+    $pkg = "git+https://github.com/rushi053/rewind@v$ver"
+}
 
 function Have($name) { return [bool](Get-Command $name -ErrorAction SilentlyContinue) }
 
