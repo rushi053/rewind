@@ -1,5 +1,7 @@
 # Rewind
 
+<p align="center"><a href="docs/demo.mp4"><img src="docs/demo.gif" alt="Demo: an agent runs rm -rf under rewind run, the seatbelt blocks git reset --hard, and rewind undo --session brings every file back" width="960"></a></p>
+
 **An undo button for AI coding agents.** Rewind snapshots every file in your project (untracked files like `.env` and the `.git` directory included) before and while an agent works, so any change it makes can be rolled back with one command.
 
 <p align="center"><img src="docs/log.svg" alt="rewind log showing a Claude Code session and a wrapped aider session, then rewind undo --session" width="820"></p>
