@@ -34,13 +34,24 @@ _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 def _path_key(path):
-    """Identity for a directory that survives macOS case-folding and /var -> /private/var."""
+    """Identity for a directory.
+
+    ``os.path.normcase`` does not fold case on macOS, and ``realpath`` keeps
+    the spelling you asked for, so ``~/code`` and ``~/Code`` stay two strings
+    on a case-insensitive volume. The inode is the same directory. Linux
+    keeps ``code`` and ``Code`` apart because they are different inodes;
+    a symlink to the same directory still collapses.
+    """
     text = os.fspath(path)
     try:
-        text = os.path.realpath(text)
+        st = os.stat(text)
+        return (st.st_dev, st.st_ino)
     except OSError:
-        text = os.path.abspath(text)
-    return os.path.normcase(text)
+        try:
+            text = os.path.realpath(text)
+        except OSError:
+            text = os.path.abspath(text)
+        return ("path", os.path.normcase(text))
 
 GUARD_MODES = ("block", "snapshot", "warn", "off")
 
