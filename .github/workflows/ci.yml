@@ -28,6 +28,14 @@ jobs:
         run: python -c "import importlib.metadata as m; r = m.requires('rewind-cli') or []; assert not [x for x in r if 'extra' not in x], r"
       - name: Test
         run: python -m pytest -o addopts="" -ra
+      - name: Surface app.log if the app failed to start
+        if: failure()
+        run: |
+          echo "The app test includes the tail of app.log in its assertion. This step also prints any copy left on disk."
+          find "$HOME" /tmp "$RUNNER_TEMP" -name app.log -type f 2>/dev/null | head -20 | while read -r f; do
+            echo "===== $f ====="
+            tail -n 80 "$f" || true
+          done
       - name: Launchers (macOS bundle is linted with plutil on macOS runners)
         run: |
           REWIND_BIN="$(command -v rewind)" sh scripts/build-macos-app.sh "$RUNNER_TEMP/app"

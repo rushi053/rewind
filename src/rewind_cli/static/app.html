@@ -15,7 +15,7 @@
   /* neutrals */
   --bg: #fbfbfb; --side: #f6f6f7; --surface: #ffffff; --surface-2: #fafafa; --hover: #f3f3f4; --sel: #ececee; --press: #e7e7ea;
   --border: #ebebed; --border-2: #dfdfe3; --border-3: #cfcfd5;
-  --text: #111113; --muted: #56565f; --faint: #6f6f78; --ghost: #a1a1aa;
+  --text: #111113; --muted: #56565f; --faint: #6f6f78; --ghost: #6e6e76; /* 4.5:1 on white, page, side, and hover */
   /* one accent */
   --accent: #5b5bd6; --accent-2: #4f4fc7; --accent-text: #4c4cc4; --accent-bg: rgba(91,91,214,.08); --accent-bg-2: rgba(91,91,214,.14); --accent-ring: rgba(91,91,214,.32); --on-accent: #fff;
   /* status */
@@ -45,7 +45,7 @@
 :root[data-theme="dark"] {
   --bg: #0b0b0c; --side: #0e0e10; --surface: #141416; --surface-2: #18181b; --hover: #1c1c20; --sel: #232328; --press: #29292f;
   --border: #222226; --border-2: #2c2c32; --border-3: #3a3a42;
-  --text: #ededef; --muted: #a8a8b2; --faint: #8b8b95; --ghost: #5d5d66;
+  --text: #ededef; --muted: #a8a8b2; --faint: #8b8b95; --ghost: #89898f; /* 4.5:1 on surface, hover, and selected */
   --accent: #635fdd; --accent-2: #6d69e6; --accent-text: #a8a6ff; --accent-bg: rgba(125,121,240,.12); --accent-bg-2: rgba(125,121,240,.20); --accent-ring: rgba(140,136,255,.45); --on-accent: #fff;
   --green: #4cc38a; --green-solid: #30a46c; --green-bg: rgba(76,195,138,.11); --green-line: rgba(76,195,138,.26);
   --amber: #f1b44b; --amber-solid: #f5a524; --amber-bg: rgba(241,180,75,.11); --amber-line: rgba(241,180,75,.26);
@@ -104,6 +104,7 @@ aside { border-right: 1px solid var(--border); background: var(--side); display:
 .side-folders .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sdot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--ghost); box-shadow: 0 0 0 3px transparent; }
 .sdot.protected { background: var(--green-solid); box-shadow: 0 0 0 3px var(--green-bg); }
+.sdot.paused { background: var(--amber-solid); box-shadow: 0 0 0 3px var(--amber-bg); }
 .sdot.missing, .sdot.error { background: var(--red-solid); box-shadow: 0 0 0 3px var(--red-bg); }
 .sdot.starting, .sdot.preparing { background: var(--amber-solid); box-shadow: 0 0 0 3px var(--amber-bg); animation: breathe 1.6s var(--ease-in-out) infinite; }
 .side-foot { border-top: 1px solid var(--border); padding: 10px 12px 10px 18px; display: flex; align-items: center; gap: 8px; color: var(--faint); font-size: 12px; }
@@ -249,10 +250,12 @@ h2 { font-size: 15px; line-height: 1.35; font-weight: 600; letter-spacing: -.015
 .chip-btn:disabled { opacity: .45; cursor: default; }
 .callout { display: flex; align-items: center; gap: 14px; padding: 14px 18px; }
 .callout .grow { flex: 1; min-width: 0; }
-.banner { display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 16px; border-radius: var(--r-md); background: var(--red-bg); color: var(--text); margin-bottom: 24px; border: 1px solid var(--red-line); animation: view-in var(--t-slow) var(--ease-out) both; }
-.banner .ic { color: var(--red); display: flex; }
-.banner .grow { flex: 1; min-width: 0; }
-.banner code { background: transparent; }
+.statusline { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; padding: 2px 0 12px; font-size: 13.5px; line-height: 1.45; border-bottom: 1px solid var(--border); }
+.statusline:empty, .statusline[hidden] { display: none; }
+.statusline .sl-lead { font-weight: 600; }
+.statusline .sl-sep { color: var(--faint); }
+.statusline .sl-block { color: var(--muted); min-width: 0; }
+.statusline .mono { color: var(--text); }
 
 /* timeline items */
 .feed .row { align-items: flex-start; }
@@ -350,7 +353,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 1px rg
 .stat.back { background: var(--green-bg); color: var(--green); box-shadow: inset 0 0 0 1px var(--green-line); }
 .stat.chg { background: var(--amber-bg); color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber-line); }
 .stat.rm { background: var(--red-bg); color: var(--red); box-shadow: inset 0 0 0 1px var(--red-line); }
-.flist { margin: 8px 0 0; padding: 0; list-style: none; max-height: 180px; overflow: auto; }
+.flist { margin: 8px 0 0; padding: 0; list-style: none; max-height: 240px; overflow: auto; }
 .flist li { font-family: var(--mono); font-size: 11.5px; padding: 3px 0; color: var(--muted); overflow-wrap: anywhere; }
 .flist .lbl { font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--text); margin-top: 10px; }
 .reassure { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-size: 13px; margin-top: 14px; }
@@ -465,7 +468,59 @@ label.inline { display: inline-flex; align-items: center; gap: 8px; color: var(-
 .icon.lg { width: 18px; height: 18px; }
 .icon.xl { width: 22px; height: 22px; }
 kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border-2); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--surface); }
-iframe.timeline { width: 100%; height: calc(100vh - 250px); min-height: 480px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-xs); }
+.helpgrid { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; align-items: center; }
+.helpgrid kbd { margin-right: 2px; }
+.menu-btn { display: none; }
+#crumbs { flex: 1; min-width: 0; }
+.nav-scrim { display: none; }
+
+/* timeline: snapshots, files with line counts, diff */
+.tl { display: grid; grid-template-columns: minmax(220px, 280px) minmax(240px, 320px) minmax(0, 1fr); height: calc(100vh - 228px); min-height: 460px; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-xs); }
+.tl-col { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--surface); }
+.tl-col + .tl-col { border-left: 1px solid var(--border); }
+.tl-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); min-height: 46px; }
+.tl-seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: 8px; background: var(--hover); flex: none; }
+.tl-seg button { border: 0; background: transparent; height: 26px; padding: 0 8px; border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 500; }
+.tl-seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--border-2); }
+.tl-head .grow { flex: 1; min-width: 0; }
+.tl-title { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-scroll { flex: 1; overflow: auto; min-height: 0; }
+.tl-snap { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 1px 8px; align-items: center; padding: 8px 12px; cursor: pointer; border-left: 2px solid transparent; }
+.tl-snap:hover { background: var(--hover); }
+.tl-snap.sel { background: var(--sel); border-left-color: var(--accent); }
+.tl-snap .id { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+.tl-snap .desc { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-snap .when { font-size: 12px; color: var(--faint); }
+.tl-snap .sub { grid-column: 2 / -1; display: flex; gap: 8px; align-items: center; color: var(--faint); font-size: 12px; }
+.tl-group { padding: 8px 12px 2px; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: baseline; }
+.tl-group b { color: var(--text); font-weight: 600; }
+.tl-file { display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer; border-left: 2px solid transparent; }
+.tl-file:hover { background: var(--hover); }
+.tl-file.sel { background: var(--sel); border-left-color: var(--accent); }
+.tl-file .fpath { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-file .dir { color: var(--faint); }
+.tl-delta { flex: none; display: flex; gap: 6px; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.tl-delta .p { color: var(--green); } .tl-delta .m { color: var(--red); }
+.tl-badge { width: 18px; height: 18px; flex: none; display: grid; place-items: center; border-radius: 5px; font: 600 10px var(--mono); background: var(--hover); color: var(--muted); }
+.tl-badge.A { background: var(--green-bg); color: var(--green); }
+.tl-badge.M { background: var(--amber-bg); color: var(--amber); }
+.tl-badge.D { background: var(--red-bg); color: var(--red); }
+.tl-badge.R { background: var(--blue-bg); color: var(--blue); }
+.tl-diff { background: var(--bg); }
+.tl-diff .diff-scroll { flex: 1; overflow: auto; min-height: 0; font: 13.5px/1.6 var(--mono); }
+.tl-diff table { border-collapse: collapse; width: 100%; }
+.tl-diff td { padding: 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; vertical-align: top; }
+.tl-diff td.ln { width: 48px; text-align: right; color: var(--faint); user-select: none; padding: 0 8px; font-variant-numeric: tabular-nums; }
+.tl-diff td.sign { width: 18px; padding: 0 0 0 6px; color: var(--faint); user-select: none; }
+.tl-diff tr.add td { background: var(--green-bg); }
+.tl-diff tr.del td { background: var(--red-bg); }
+.tl-diff tr.add td.ln, .tl-diff tr.add td.sign { color: var(--green); }
+.tl-diff tr.del td.ln, .tl-diff tr.del td.sign { color: var(--red); }
+.tl-diff tr.hunk td { background: var(--accent-bg); color: var(--accent-text); padding: 6px 14px; font-size: 12.5px; font-weight: 500; }
+.tl-diff .tok-s { color: #22863a; } .tl-diff .tok-k { color: #6f42c1; } .tl-diff .tok-n { color: #b35900; } .tl-diff .tok-c { color: #6e6e76; font-style: italic; } .tl-diff .tok-f { color: #1f5fbf; }
+:root[data-theme="dark"] .tl-diff .tok-s { color: #9fd9a8; } :root[data-theme="dark"] .tl-diff .tok-k { color: #c4a8ff; } :root[data-theme="dark"] .tl-diff .tok-n { color: #f3bd86; } :root[data-theme="dark"] .tl-diff .tok-c { color: #9a9aa3; } :root[data-theme="dark"] .tl-diff .tok-f { color: #8ab8ff; }
+.tl-empty { padding: 28px 16px; color: var(--muted); text-align: center; font-family: var(--sans); font-size: 13.5px; }
+.tl-empty b { display: block; color: var(--text); font-weight: 600; margin-bottom: 4px; }
 
 /* entrance motion */
 @keyframes view-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -473,10 +528,19 @@ iframe.timeline { width: 100%; height: calc(100vh - 250px); min-height: 480px; b
 .stagger > * { animation: view-in var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 35ms); }
 
 @media (max-width: 860px) {
-  .shell { grid-template-columns: 1fr; } aside { display: none; }
+  .shell { grid-template-columns: 1fr; }
+  .menu-btn { display: inline-flex; }
+  aside { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: min(300px, 88vw); transform: translateX(-105%); transition: transform var(--t) var(--ease-out); box-shadow: var(--shadow-lg); }
+  .shell.nav-open aside { transform: none; }
+  .shell.nav-open .nav-scrim { display: block; position: fixed; inset: 0; z-index: 35; background: var(--scrim); }
+  .shell.bare aside { display: none; }
   .actions, .radio-cards, .tips { grid-template-columns: 1fr; }
-  .page { padding: 8px 18px 60px; } .topbar { padding: 0 18px; }
+  .page { padding: 8px 18px 60px; } .topbar { padding: 0 14px; }
   .integ { padding-left: 20px; }
+  .tl { display: flex; flex-direction: column; height: auto; min-height: 0; }
+  .tl-col { max-height: 220px; border-left: 0; }
+  .tl-col + .tl-col { border-left: 0; border-top: 1px solid var(--border); }
+  .tl-diff { max-height: none; min-height: 360px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0ms !important; scroll-behavior: auto !important; }
@@ -494,8 +558,9 @@ iframe.timeline { width: 100%; height: calc(100vh - 250px); min-height: 480px; b
     <div class="side-folders" id="sideFolders"></div>
     <div class="side-foot"><span id="ver"></span><span style="flex:1"></span><button class="btn ghost sm theme-btn" id="themeBtn" title="Light / dark" aria-label="Switch between light and dark"><svg class="icon i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.1A8.5 8.5 0 0 1 9.9 3.5a8.5 8.5 0 1 0 10.6 10.6Z"/></svg><svg class="icon i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2m0 15v2M4.6 4.6l1.4 1.4m12 12 1.4 1.4M2.5 12h2m15 0h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg></button></div>
   </aside>
-  <main id="main"><div class="topbar" id="topbar"></div><div id="view"></div></main>
+  <main id="main"><div class="topbar"><button class="btn ghost sm menu-btn" id="menuBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><div id="crumbs"></div><button class="btn ghost sm" id="helpBtn" type="button" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><kbd>?</kbd></button></div><div id="view"></div></main>
 </div>
+<div class="nav-scrim" id="navScrim"></div>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -641,13 +706,35 @@ function openModal(html, { wide = false, onClose } = {}) {
 function closeModal() { if (modalClose) modalClose(); }
 $("#modalBg").addEventListener("mousedown", (e) => { if (e.target.id === "modalBg") closeModal(); });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && modalClose) closeModal();
+  if (e.key === "Escape" && modalClose) { closeModal(); return; }
   if (e.key === "Tab" && modalClose) { // keep focus inside the dialog
     const f = $$("button:not([disabled]), [href], input:not([disabled]), select, summary, [tabindex]:not([tabindex='-1'])", $("#modal")).filter(x => x.offsetParent);
     if (!f.length) return; const first = f[0], last = f[f.length - 1];
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    return;
   }
+  if (modalClose) return;
+  if (e.key === "Escape" && $("#shell").classList.contains("nav-open")) { setNavOpen(false); return; }
+  const typing = e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+  if (typing) {
+    if (e.key === "Escape" && e.target.id === "tlQ") { e.target.value = ""; e.target.dispatchEvent(new Event("input")); e.target.blur(); }
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "?") { e.preventDefault(); showShortcuts(); return; }
+  if (e.key === "t") { $("#themeBtn").click(); return; }
+  if (!$("#tl")) return;
+  if (e.key === "j") tlMoveSnap(1);
+  else if (e.key === "k") tlMoveSnap(-1);
+  else if (e.key === "J" || e.key === "ArrowDown") { e.preventDefault(); tlSelectFile(TL.fileSel + 1); }
+  else if (e.key === "K" || e.key === "ArrowUp") { e.preventDefault(); tlSelectFile(TL.fileSel - 1); }
+  else if (e.key === "/") { e.preventDefault(); const q = $("#tlQ"); if (q) { q.focus(); q.select(); } }
+  else if (e.key === "u" && TL.f) previewFlow(TL.f, "undo");
+  else if (e.key === "r") { const b = $("#tlRestoreFile"); if (b && !b.disabled) b.click(); }
+  else if (e.key === "R") tlRestore(null);
+  else if (e.key === "s") tlSetMode(TL.mode === "split" ? "unified" : "split");
+  else if (e.key === "n") tlSetBase(TL.base === "now" ? "parent" : "now");
 });
 function confirmModal({ title, body, ok = "Confirm", danger = false }) {
   return new Promise((resolve) => {
@@ -706,8 +793,16 @@ function placeNav() {
 }
 function setTop(crumbs, title) {
   const sep = `<span class="sep">${ic("chev")}</span>`;
-  $("#topbar").innerHTML = `<nav class="crumbs-top" aria-label="Breadcrumb">${crumbs.map(([label, href], i) => (i ? sep : "") + (href && i < crumbs.length - 1 ? `<a href="${href}">${esc(label)}</a>` : `<span class="cur" aria-current="page">${esc(label)}</span>`)).join("")}</nav>`;
+  $("#crumbs").innerHTML = `<nav class="crumbs-top" aria-label="Breadcrumb">${crumbs.map(([label, href], i) => (i ? sep : "") + (href && i < crumbs.length - 1 ? `<a href="${href}">${esc(label)}</a>` : `<span class="cur" aria-current="page">${esc(label)}</span>`)).join("")}</nav>`;
 }
+function setNavOpen(on) {
+  $("#shell").classList.toggle("nav-open", !!on);
+  $("#menuBtn").setAttribute("aria-expanded", on ? "true" : "false");
+}
+$("#menuBtn").onclick = () => setNavOpen(!$("#shell").classList.contains("nav-open"));
+$("#navScrim").onclick = () => setNavOpen(false);
+$("#helpBtn").onclick = () => showShortcuts();
+document.addEventListener("click", (e) => { if (e.target.closest("aside a")) setNavOpen(false); });
 
 // ------------------------------------------------------------------ router
 function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
@@ -715,6 +810,7 @@ window.addEventListener("hashchange", route);
 const main = $("#main");
 main.addEventListener("scroll", () => { main.classList.toggle("scrolled", main.scrollTop > 4); main.classList.toggle("scrolled-far", main.scrollTop > 72); }, { passive: true });
 async function route() {
+  setNavOpen(false);
   clearInterval(S.timer); S.timer = null;
   S.prev = S.route;
   S.route = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
@@ -744,7 +840,7 @@ function every(ms, fn) { clearInterval(S.timer); S.timer = setInterval(() => { i
 async function pageHome() {
   const folders = S.state.folders;
   view(`<div class="page">
-    <div id="banner"></div>
+    <div class="statusline" id="statusline" hidden></div>
     <div class="page-head"><div class="grow"><h1>Your folders</h1><p class="sub">Rewind keeps a copy of every change in these folders, so you can always go back.</p></div>
       <a class="btn primary" href="#/add">${ic("plus")}Protect a folder</a></div>
     <div class="card list" id="folderList"></div>
@@ -788,16 +884,43 @@ function eventRow(ev, showFolder = true) {
     ${ev.detail ? `<div class="files-inline" title="${esc(ev.detail)}">${esc(tildify(ev.detail))}</div>` : ""}
     ${showFolder && ev.folder_name && !(ev.title || "").includes(ev.folder_name) ? `<div class="meta">${esc(ev.folder_name)}</div>` : ""}</div><div class="when">${ago(ev.time)}</div></div>`;
 }
+function homeStatus(folders, blocked) {
+  const prot = folders.filter(f => f.state === "protected").length;
+  const paused = folders.filter(f => f.state === "paused").length;
+  const other = folders.length - prot - paused;
+  let lead, dot = "";
+  if (prot && !paused && !other) { lead = folders.length === 1 ? "Protected" : plural(prot, "folder") + " protected"; dot = "protected"; }
+  else if (paused && !prot && !other) { lead = folders.length === 1 ? "Paused" : plural(paused, "folder") + " paused"; dot = "paused"; }
+  else {
+    const bits = [];
+    if (prot) bits.push(plural(prot, "folder") + " protected");
+    if (paused) bits.push(plural(paused, "folder") + " paused");
+    if (other) bits.push(plural(other, "folder") + " not ready");
+    lead = bits.join(", ") || plural(folders.length, "folder");
+    dot = prot ? "protected" : (paused ? "paused" : "");
+  }
+  let block = "";
+  if (blocked) {
+    const cmd = blocked.detail || blocked.title;
+    block = `<span class="sl-sep" aria-hidden="true">·</span><span class="sl-block">Blocked <span class="mono">${esc(cmd)}</span> ${esc(ago(blocked.time))}. Files were not touched.</span>`;
+  }
+  return `<span class="sdot ${dot}" aria-hidden="true"></span><span class="sl-lead">${esc(lead)}</span>${block}`;
+}
 async function loadHomeFeed(first) {
   let events = [];
-  try { events = (await api("/api/activity?limit=6")).events; } catch (e) { return; }
+  try { events = (await api("/api/activity?limit=8")).events; } catch (e) { return; }
   const el = $("#homeFeed"); if (!el) return;
-  const html = events.length ? events.map(ev => eventRow(ev)).join("") : `<div class="empty small">Nothing yet. When Rewind blocks a command, restores files or connects a tool, it shows up here.</div>`;
-  if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; if (first) stagger(el); }
+  const folders = (S.state && S.state.folders) || [];
   const blocked = events.find(ev => ev.kind === "blocked" && Date.now() / 1000 - ev.time < 86400);
-  const b = $("#banner");
-  const bh = blocked ? `<div class="banner"><span class="ic">${ic("shieldX", "lg")}</span><div class="grow"><b>${esc(blocked.title)}</b> ${ago(blocked.time)}. Your files were not touched.${blocked.detail ? `<div class="files-inline" style="color:var(--muted)" title="${esc(blocked.detail)}">${esc(blocked.detail)}</div>` : ""}</div><a class="btn sm" href="#/activity">View</a></div>` : "";
-  if (b && b.dataset.html !== bh) { b.innerHTML = bh; b.dataset.html = bh; }
+  const rest = (blocked ? events.filter(ev => ev !== blocked) : events).slice(0, 6);
+  const html = rest.length ? rest.map(ev => eventRow(ev)).join("") : `<div class="empty small">${blocked ? "Nothing else yet." : "Nothing yet. When Rewind blocks a command, restores files or connects a tool, it shows up here."}</div>`;
+  if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; if (first) stagger(el); }
+  const line = $("#statusline");
+  if (line) {
+    const sh = folders.length ? homeStatus(folders, blocked) : "";
+    line.hidden = !sh;
+    if (line.dataset.html !== sh) { line.innerHTML = sh; line.dataset.html = sh; }
+  }
 }
 
 // ================================================================== PICKER
@@ -810,15 +933,16 @@ function pickerHtml() {
       <div class="browser"><div class="crumbs" id="pkCrumbs"><span class="skel" style="width:180px;margin:6px"></span></div><div class="dirs list" id="pkDirs">${skelRows(4, { sm: true })}</div></div>
       <details class="more" id="pkMore"><summary>Where Rewind keeps the saved copies</summary>
         <div class="radio-cards" style="margin-top:12px">
-          <button class="radio-card on" data-store="local" type="button"><span class="rc"></span><span><div class="t">Inside the folder</div><div class="d">In a hidden <code>.rewind</code> folder that Git ignores. Simple and portable.</div></span></button>
-          <button class="radio-card" data-store="global" type="button"><span class="rc"></span><span><div class="t">In your home folder</div><div class="d">In <code>~/.rewind</code>, out of reach of tools working in the project.</div></span></button>
-        </div></details>
+          <button class="radio-card on" data-store="global" type="button"><span class="rc"></span><span><div class="t">In your home folder</div><div class="d">Default. In <code>~/.rewind</code>, out of reach of tools working in the project.</div></span></button>
+          <button class="radio-card" data-store="local" type="button"><span class="rc"></span><span><div class="t">Inside the folder</div><div class="d">Opt in. A hidden <code>.rewind</code> folder that Git ignores. Portable, and inside the tree an agent can read.</div></span></button>
+        </div>
+        <p class="sub" style="margin:10px 0 0">Snapshots of <code>.env</code> are plaintext copies on this machine, not encrypted.</p></details>
     </div>
     <div class="pickbar"><div class="grow"><div class="when-label">Selected folder</div><div class="mono" id="pkSel" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div><div class="check-msg" id="pkMsg"></div></div>
       <button class="btn primary lg" id="pkProtect" disabled>${ic("shield")}Protect this folder</button></div></div>`;
 }
 function mountPicker(root, onAdded) {
-  let cur = null, globalStore = false;
+  let cur = null, globalStore = true;
   const browse = async (path) => {
     try {
       const d = await api("/api/fs?path=" + encodeURIComponent(path || "") + ($("#pkHidden", root).checked ? "&hidden=1" : ""));
@@ -950,8 +1074,8 @@ function summaryHtml(s) {
   if (s.removed.length) st.push(`<span class="stat rm">${ic("trash")}${plural(s.removed.length, "file")} removed</span>`);
   const list = (label, items) => items.length ? `<li class="lbl">${label}</li>` + items.slice(0, 200).map(p => `<li>${esc(p)}</li>`).join("") + (items.length > 200 ? `<li>… and ${items.length - 200} more</li>` : "") : "";
   const total = s.come_back.length + s.change_back.length + s.removed.length;
-  return `<div class="sentence">${esc(s.sentence)}</div>${st.length > 1 ? `<div class="stats3">${st.join("")}</div>` : ""}
-    ${total || s.git_internal ? `<details class="more"><summary>Details</summary><ul class="flist">${list("Will come back", s.come_back)}${list("Will change back to the earlier version", s.change_back)}${list("Will be removed (created after that point)", s.removed)}</ul>
+  return `<div class="sentence">${esc(s.sentence)}</div>${st.length ? `<div class="stats3">${st.join("")}</div>` : ""}
+    ${total || s.git_internal ? `<details class="more" open><summary>${total ? plural(total, "file") : "Details"}</summary><ul class="flist">${list("Will come back", s.come_back)}${list("Will change back to the earlier version", s.change_back)}${list("Will be removed (created after that point)", s.removed)}</ul>
     ${s.git_internal ? `<div class="small faint" style="margin-top:8px">Also ${plural(s.git_internal, "internal Git file")} (Git's own bookkeeping) will be restored to match.</div>` : ""}
     ${s.target_id != null ? `<div class="small faint" style="margin-top:4px">Saved version #${s.target_id}</div>` : ""}</details>` : ""}`;
 }
@@ -1085,9 +1209,261 @@ async function tabDeleted(f) {
   await load();
 }
 
+const TL = { f: null, data: null, flat: [], sel: null, files: [], fileSel: -1, base: "parent", mode: localStorage.getItem("rewind.mode") || "unified", q: "", cache: new Map(), fileRestoreId: null, token: 0 };
+const TL_LABELS = { manual: "snap", watch: "watch", guard: "seatbelt", safety: "safety", restore: "restore", "run-start": "start", "run-end": "end", init: "init" };
+function tlLabel(m) { return m.trigger === "hook" ? (m.tool || "hook") : (TL_LABELS[m.trigger] || m.trigger || ""); }
+function tlDescribe(m) {
+  if (m.trigger === "manual") return m.message ? "“" + m.message + "”" : "Checkpoint";
+  if (m.trigger === "hook" && m.detail) return (m.message || "").split(" ")[0] + " " + m.detail.replace(/\s+/g, " ");
+  if (m.trigger === "guard" && (m.message || "").startsWith("blocked") && m.detail) return "blocked: " + m.detail.replace(/\s+/g, " ");
+  return m.message || tlLabel(m);
+}
+function tlStats(s) {
+  if (!s) return "";
+  const p = [];
+  if (s.added) p.push("+" + s.added);
+  if (s.modified) p.push("~" + s.modified);
+  if (s.deleted) p.push("−" + s.deleted);
+  return p.join(" ");
+}
+function showShortcuts() {
+  if (modalClose) return;
+  const rows = [["j / k", "Next / previous snapshot"], ["J / K", "Next / previous file"], ["/", "Filter snapshots"], ["r", "Restore the selected file"], ["R", "Restore the folder to this snapshot"], ["u", "Undo the last change"], ["s", "Unified or split diff"], ["n", "This step, or versus now"], ["t", "Light or dark"], ["?", "This help"], ["Esc", "Close, or clear the filter"]];
+  const grid = rows.map(([k, v]) => `<span>${k.split(" / ").map(part => `<kbd>${esc(part)}</kbd>`).join('<span class="faint"> / </span>')}</span><span>${esc(v)}</span>`).join("");
+  const m = openModal(`<div class="m-head"><h2>Keyboard shortcuts</h2></div><div class="m-body"><div class="helpgrid">${grid}</div></div><div class="m-foot"><button class="btn primary" data-x>Close</button></div>`);
+  m.querySelector("[data-x]").onclick = closeModal;
+}
 function tabTimeline(f) {
-  $("#fBody").innerHTML = `<p class="small muted" style="margin:-8px 0 14px">The full technical history: every saved version, which files changed, and line-by-line differences. Press <kbd>?</kbd> inside for shortcuts.</p>
-    <iframe class="timeline" title="Timeline" src="/ui?t=${encodeURIComponent(TOKEN)}&f=${f.id}&embed=1"></iframe>`;
+  TL.f = f;
+  TL.cache = new Map();
+  $("#fBody").innerHTML = `<div class="tl" id="tl">
+    <section class="tl-col" aria-label="Snapshots">
+      <div class="tl-head"><div class="search" style="flex:1">${ic("search")}<input class="input" id="tlQ" placeholder="Filter snapshots" aria-label="Filter snapshots" autocomplete="off" spellcheck="false" style="height:32px"></div></div>
+      <div class="tl-scroll" id="tlSnaps"></div>
+    </section>
+    <section class="tl-col" aria-label="Files">
+      <div class="tl-head"><span class="tl-title grow" id="tlFilesTitle">Files</span><div class="tl-seg" role="group" aria-label="Compare against"><button type="button" id="tlBasePrev" class="on">This step</button><button type="button" id="tlBaseNow">vs now</button></div><button class="btn sm primary" id="tlRestoreAll" type="button">Restore</button></div>
+      <div class="tl-scroll" id="tlFiles"></div>
+    </section>
+    <section class="tl-col tl-diff" aria-label="Diff">
+      <div class="tl-head" id="tlDetail" style="display:none">
+        <span class="tl-badge" id="tlBadge"></span>
+        <span class="fpath" id="tlPath" style="font-family:var(--mono);font-size:12.5px"></span>
+        <div class="tl-seg"><button type="button" id="tlModeUni" class="on">Unified</button><button type="button" id="tlModeSplit">Split</button></div>
+        <button class="btn sm" id="tlRestoreFile" type="button">Restore this file</button>
+      </div>
+      <div class="diff-scroll" id="tlDiff"><div class="tl-empty">Loading history…</div></div>
+    </section>
+  </div>`;
+  $("#tlQ").addEventListener("input", () => {
+    TL.q = $("#tlQ").value.trim();
+    tlRenderSnaps();
+    if (TL.flat.length && !TL.flat.some(m => m.id === TL.sel)) tlSelectSnap(TL.flat[0].id);
+    else if (TL.sel != null) tlSelectSnap(TL.sel);
+  });
+  $("#tlBasePrev").onclick = () => tlSetBase("parent");
+  $("#tlBaseNow").onclick = () => tlSetBase("now");
+  $("#tlModeUni").onclick = () => tlSetMode("unified");
+  $("#tlModeSplit").onclick = () => tlSetMode("split");
+  $("#tlRestoreAll").onclick = () => tlRestore(null);
+  $("#tlRestoreFile").onclick = () => { const c = TL.files[TL.fileSel]; if (c && TL.fileRestoreId != null) tlRestore([c.path]); };
+  tlSetMode(TL.mode);
+  tlLoad().catch(fail);
+}
+async function tlLoad(keep) {
+  const data = await api(`/api/f/${TL.f.id}/timeline`);
+  if (!$("#tl") || TL.f.id !== (folderById(S.route[1]) || {}).id) return;
+  TL.data = data;
+  tlRenderSnaps();
+  if (!TL.flat.length) {
+    $("#tlDiff").innerHTML = `<div class="tl-empty"><b>No snapshots yet</b>Rewind adds one the next time something in this folder changes.</div>`;
+    return;
+  }
+  const keepSnap = keep && TL.flat.find(m => m.id === keep);
+  const withChanges = TL.flat.find(m => m.stats && (m.stats.added || m.stats.modified || m.stats.deleted || m.stats.renamed));
+  tlSelectSnap(keepSnap ? keepSnap.id : (withChanges || TL.flat[0]).id);
+}
+function tlRenderSnaps() {
+  const sessions = new Map((TL.data.sessions || []).map(s => [s.id, s]));
+  const q = TL.q.toLowerCase();
+  let snaps = TL.data.snapshots.slice().reverse().filter(m => m.trigger !== "safety");
+  if (q) snaps = snaps.filter(m => (tlDescribe(m) + " " + tlLabel(m) + " #" + m.id).toLowerCase().includes(q));
+  TL.flat = snaps;
+  const el = $("#tlSnaps");
+  if (!snaps.length) { el.innerHTML = `<div class="tl-empty">${q ? "No snapshots match." : "No snapshots yet."}</div>`; return; }
+  let html = "", cur = undefined;
+  for (const m of snaps) {
+    const g = m.session || null;
+    if (g !== cur) {
+      const s = g && sessions.get(g);
+      if (s) html += `<div class="tl-group"><span class="mono">${esc(s.id)}</span><b>${esc(s.name || "Session")}</b></div>`;
+      cur = g;
+    }
+    html += `<div class="tl-snap ${TL.sel === m.id ? "sel" : ""}" data-id="${m.id}"><span class="id">#${m.id}</span><span class="desc" title="${esc(tlDescribe(m))}">${esc(tlDescribe(m))}</span><span class="when">${esc(ago(m.time))}</span><span class="sub"><span>${esc(tlLabel(m))}</span><span class="mono">${esc(tlStats(m.stats))}</span></span></div>`;
+  }
+  el.innerHTML = html;
+  $$(".tl-snap", el).forEach(n => n.onclick = () => tlSelectSnap(+n.dataset.id));
+}
+function tlMoveSnap(d) {
+  const i = TL.flat.findIndex(m => m.id === TL.sel);
+  const n = TL.flat[Math.min(TL.flat.length - 1, Math.max(0, i + d))];
+  if (n && n.id !== TL.sel) tlSelectSnap(n.id);
+}
+async function tlSelectSnap(id) {
+  const token = ++TL.token;
+  TL.sel = id;
+  $$(".tl-snap").forEach(n => n.classList.toggle("sel", +n.dataset.id === id));
+  const node = $(`.tl-snap[data-id="${id}"]`);
+  if (node) node.scrollIntoView({ block: "nearest" });
+  const key = id + ":" + TL.base;
+  let snap = TL.cache.get(key);
+  if (!snap) {
+    try { snap = await api(`/api/f/${TL.f.id}/snapshot?id=${id}&base=${TL.base}`); }
+    catch (e) { if (token === TL.token) fail(e); return; }
+    if (token !== TL.token) return;
+    TL.cache.set(key, snap);
+  }
+  if (token !== TL.token || !$("#tl")) return;
+  const q = TL.q.toLowerCase();
+  TL.files = q && snap.changes.some(c => c.path.toLowerCase().includes(q)) ? snap.changes.filter(c => c.path.toLowerCase().includes(q)) : snap.changes;
+  const nFiles = TL.files.length;
+  $("#tlFilesTitle").textContent = TL.base === "now"
+    ? plural(nFiles, "file") + (nFiles === 1 ? " differs from now" : " differ from now")
+    : plural(nFiles, "file") + " in this step";
+  tlRenderFiles();
+  if (TL.files.length) tlSelectFile(0);
+  else {
+    TL.fileSel = -1;
+    $("#tlDetail").style.display = "none";
+    $("#tlDiff").innerHTML = `<div class="tl-empty"><b>${TL.base === "now" ? "Your files match this snapshot" : "No file changes in this step"}</b>${TL.base === "now" ? "" : "Try vs now to see what restoring would change."}</div>`;
+  }
+}
+function tlPathHtml(p) {
+  const i = p.lastIndexOf("/");
+  return i >= 0 ? `<span class="dir">${esc(p.slice(0, i + 1))}</span>${esc(p.slice(i + 1))}` : esc(p);
+}
+function tlDelta(c) {
+  if (c.plus == null && c.minus == null) return "";
+  const p = c.plus ? `<span class="p">+${c.plus}</span>` : "";
+  const m = c.minus ? `<span class="m">−${c.minus}</span>` : "";
+  return (p || m) ? `<span class="tl-delta">${p}${m}</span>` : "";
+}
+function tlRenderFiles() {
+  const el = $("#tlFiles");
+  if (!TL.files.length) { el.innerHTML = `<div class="tl-empty">Nothing here.</div>`; return; }
+  el.innerHTML = TL.files.map((c, i) => `<div class="tl-file ${i === TL.fileSel ? "sel" : ""}" data-i="${i}" title="${esc(c.path)}"><span class="tl-badge ${c.status}">${c.status}</span><span class="fpath">${tlPathHtml(c.path)}</span>${tlDelta(c)}</div>`).join("");
+  $$(".tl-file", el).forEach(n => n.onclick = () => tlSelectFile(+n.dataset.i));
+}
+async function tlSelectFile(i) {
+  if (i < 0 || i >= TL.files.length) return;
+  const token = ++TL.token;
+  TL.fileSel = i;
+  $$(".tl-file").forEach(n => n.classList.toggle("sel", +n.dataset.i === i));
+  const row = $(`.tl-file[data-i="${i}"]`);
+  if (row) row.scrollIntoView({ block: "nearest" });
+  const c = TL.files[i];
+  const meta = TL.data.snapshots.find(x => x.id === TL.sel);
+  $("#tlDetail").style.display = "flex";
+  $("#tlBadge").className = "tl-badge " + c.status;
+  $("#tlBadge").textContent = c.status;
+  $("#tlPath").textContent = c.old_path ? c.old_path + " → " + c.path : c.path;
+  TL.fileRestoreId = (TL.base === "parent" && c.status === "D") ? meta.parent : TL.sel;
+  const btn = $("#tlRestoreFile");
+  btn.textContent = c.status === "D" && TL.base === "parent" ? "Bring this file back" : "Restore this file";
+  btn.disabled = TL.fileRestoreId == null;
+  let d;
+  try { d = await api(`/api/f/${TL.f.id}/diff?id=${TL.sel}&path=${encodeURIComponent(c.path)}&base=${TL.base}`); }
+  catch (e) { if (token === TL.token) fail(e); return; }
+  if (token !== TL.token || !$("#tl")) return;
+  tlRenderDiff(d, c.path);
+}
+function tlSetMode(m) {
+  TL.mode = m;
+  localStorage.setItem("rewind.mode", m);
+  const u = $("#tlModeUni"), s = $("#tlModeSplit");
+  if (u) { u.classList.toggle("on", m === "unified"); s.classList.toggle("on", m === "split"); }
+  if (TL.fileSel >= 0 && $("#tl")) tlSelectFile(TL.fileSel);
+}
+function tlSetBase(b) {
+  TL.base = b;
+  const a = $("#tlBasePrev"), n = $("#tlBaseNow");
+  if (a) { a.classList.toggle("on", b === "parent"); n.classList.toggle("on", b === "now"); }
+  if (TL.sel != null && $("#tl")) tlSelectSnap(TL.sel);
+}
+const TL_KW = new Set("and as assert async await break case catch class const continue def default del delete do elif else enum except export extends false False finally fn for from func function go if impl import in interface is lambda let match mod new nil None not null or package pass pub raise return self static struct super switch this throw true True try type typeof use var void while with yield".split(" "));
+function tlHl(line, ext) {
+  if (line.length > 2000) return esc(line);
+  const hashComments = /^(py|rb|sh|bash|zsh|yml|yaml|toml|r|pl|conf|ini|env|mk|dockerfile|gitignore|rewindignore)$/.test(ext) || ext === "";
+  const tok = /(\/\/.*$|#.*$|--\s.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b\d[\d_]*(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)(?=\s*\()|([A-Za-z_$][\w$]*)/gi;
+  let out = "", last = 0, m;
+  while ((m = tok.exec(line))) {
+    out += esc(line.slice(last, m.index));
+    const t = m[0];
+    if (m[1]) {
+      if (t[0] === "#" && !hashComments) { out += esc(t[0]); tok.lastIndex = m.index + 1; last = m.index + 1; continue; }
+      out += `<span class="tok-c">${esc(t)}</span>`;
+    } else if (m[2]) out += `<span class="tok-s">${esc(t)}</span>`;
+    else if (m[3]) out += `<span class="tok-n">${esc(t)}</span>`;
+    else if (m[4]) out += TL_KW.has(t) ? `<span class="tok-k">${esc(t)}</span>` : `<span class="tok-f">${esc(t)}</span>`;
+    else out += TL_KW.has(t) ? `<span class="tok-k">${esc(t)}</span>` : esc(t);
+    last = tok.lastIndex;
+    if (tok.lastIndex === m.index) tok.lastIndex++;
+  }
+  return out + esc(line.slice(last));
+}
+function tlRenderDiff(d, path) {
+  const el = $("#tlDiff");
+  const ext = (path.split(".").pop() || "").toLowerCase();
+  if (d.binary) { el.innerHTML = `<div class="tl-empty"><b>Binary file</b>${size(d.old_size)} → ${size(d.new_size)}</div>`; return; }
+  if (d.too_large) { el.innerHTML = `<div class="tl-empty"><b>File too large to diff</b>${size(d.old_size)} → ${size(d.new_size)}</div>`; return; }
+  if (!d.hunks.length) { el.innerHTML = `<div class="tl-empty"><b>No line changes</b>The file was renamed or only its permissions changed.</div>`; return; }
+  const split = TL.mode === "split";
+  let html = `<table class="${split ? "split" : ""}">`;
+  for (const h of d.hunks) {
+    const aStart = Math.min(...h.map(r => r[1] || Infinity)), bStart = Math.min(...h.map(r => r[3] || Infinity));
+    const aCount = h.filter(r => r[1]).length, bCount = h.filter(r => r[3]).length;
+    const aS = isFinite(aStart) ? aStart : 0, bS = isFinite(bStart) ? bStart : 0;
+    html += `<tr class="hunk"><td colspan="4">@@ −${aS},${aCount} +${bS},${bCount} @@</td></tr>`;
+    if (split) {
+      for (const [k, an, at, bn, bt] of h) {
+        const lc = k === "eq" ? "" : (an ? "del" : "");
+        const rc = k === "eq" ? "" : (bn ? "add" : "");
+        html += `<tr><td class="ln ${lc}">${an || ""}</td><td class="code ${lc}">${an ? tlHl(at, ext) : ""}</td><td class="ln ${rc}">${bn || ""}</td><td class="code ${rc}">${bn ? tlHl(bt, ext) : ""}</td></tr>`;
+      }
+    } else {
+      const dels = [], adds = [];
+      const flush = () => {
+        for (const [n, t] of dels) html += `<tr class="del"><td class="ln">${n}</td><td class="ln"></td><td class="sign">−</td><td class="code">${tlHl(t, ext)}</td></tr>`;
+        for (const [n, t] of adds) html += `<tr class="add"><td class="ln"></td><td class="ln">${n}</td><td class="sign">+</td><td class="code">${tlHl(t, ext)}</td></tr>`;
+        dels.length = 0; adds.length = 0;
+      };
+      for (const [k, an, at, bn, bt] of h) {
+        if (k === "eq") { flush(); html += `<tr><td class="ln">${an}</td><td class="ln">${bn}</td><td class="sign"></td><td class="code">${tlHl(at, ext)}</td></tr>`; continue; }
+        if (an) dels.push([an, at]);
+        if (bn) adds.push([bn, bt]);
+      }
+      flush();
+    }
+  }
+  el.innerHTML = html + "</table>";
+  el.scrollTop = 0;
+}
+async function tlRestore(paths) {
+  const id = paths ? TL.fileRestoreId : TL.sel;
+  if (id == null) return;
+  const what = paths ? paths[0] : "the whole folder";
+  const ok = await confirmModal({
+    title: paths ? "Restore this file?" : "Restore to this point?",
+    ok: paths ? "Restore file" : "Restore folder",
+    body: `<p class="muted" style="margin-top:0">This puts <b>${esc(what)}</b> back to saved version #${id}. Rewind saves your current files first, so you can undo it.</p>`,
+  });
+  if (!ok) return;
+  try {
+    const r = await api(`/api/f/${TL.f.id}/restore`, { id, paths: paths || null });
+    TL.cache = new Map();
+    toast(r.changed ? `Restored ${plural(r.changed, "file")}. Previous state saved.` : "Nothing to restore. Files already match.", r.changed ? "ok" : "");
+    await tlLoad(TL.sel);
+  } catch (e) { fail(e); }
 }
 
 const MODES = [["block", "Block (recommended)", "Stop AI tools from running commands that delete or overwrite work, like rm -rf or git reset --hard."],

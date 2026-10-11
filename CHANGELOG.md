@@ -4,7 +4,22 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+- `rewind oops`: preview, then undo the latest agent session. `rewind redo` puts that session's result back. `rewind undo --session` records the same redo step.
+- The seatbelt looks inside `python -c` / `python3 -c`, `perl -e`, `ruby -e` and `node -e` one-liners (`shutil.rmtree`, `os.remove` on a broad path, `perl` `unlink`/`remove_tree`, `FileUtils.rm_rf`, `fs.rmSync` with `recursive`) and treats `busybox` / `toybox` as wrappers. `rm -rf node_modules` is still allowed. It is still a heuristic.
+- GitHub Actions workflow `.github/workflows/publish.yml` publishes `rewind-cli` to PyPI with trusted publishing when a `v*` tag is pushed. It does nothing until that tag exists and the PyPI project trusts this repository.
+
 ### Changed
+- The app Timeline is drawn in the page (no embedded frame): a file list with added and removed line counts beside a larger diff, and the same keyboard shortcuts from the app shell, including `?`.
+- Undo and Go back show the file list open, with counts, and still say Rewind saves the current files first.
+- Home has one status line: protected or paused, and the last blocked command once. That command is not repeated under Recent activity.
+- Below 860px a menu opens the sidebar, so every page stays reachable. The timeline stacks snapshots, then files, then the diff.
+- `rewind status` says "1 snapshot" or "2 snapshots" (and the same for sessions) and ends with one coloured line: files match the last snapshot, or N files differ. `NO_COLOR` still strips the colour.
+- The ghost colour meets WCAG AA for text (4.5:1) on the surfaces it is drawn on.
+- New projects keep their store in `~/.rewind/projects/<hash>`. `rewind init --local` (and the app's "Inside the folder" option) opts into `.rewind/` in the project. An existing in-project store is kept, not migrated. `rewind init` prints that `.env` snapshots are plaintext local copies.
+- A store lock is taken from a dead pid only. A live process keeps the lock no matter how old the lock file is.
+- `rewind app` no longer asks DNS for the name of `127.0.0.1` (that lookup could hang on macOS before the server wrote `app.json`). If the app still fails to start, the error includes the tail of `app.log`, and CI prints that file on failure.
+- Install from git (`pipx install git+https://github.com/rushi053/rewind`) until `rewind-cli` is published. `install.sh` and `install.ps1` do the same, so they do not ask PyPI for a package that 404s.
 - Refreshed the app's look: bundled Geist and Geist Mono (SIL OFL 1.1, in `static/fonts/`, served locally with long-lived caching, so the app still works offline), a tuned neutral palette with one accent and a first-class dark theme, consistent spacing, radii, borders and soft shadows, refined 1.5px icons, status pills, empty states and focus rings.
 - Calm motion throughout: page and tab transitions, staggered lists, a sliding sidebar and tab indicator, springy switches and checkboxes, a modal that scales in over a blurred backdrop, skeleton loading states, toasts with icons, slider feedback, an animated theme switch, and a check-mark confirmation after Undo, Redo and Go back. All of it is turned off under "reduce motion".
 - The timeline view (`rewind ui`, and the Timeline tab) matches the new design.

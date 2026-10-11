@@ -134,6 +134,20 @@ def test_file_browser_and_suggestions(client, fake_home):
     assert client.get("/api/fs/check?path=" + str(fake_home))[1]["error"].startswith("Your whole home folder")
 
 
+def test_suggestions_dedupe_two_names_for_one_directory(client, fake_home):
+    """~/code and ~/Code are one folder on the default macOS volume."""
+    shop = fake_home / "code" / "shop"
+    shop.mkdir(parents=True)
+    (shop / ".git").mkdir()
+    alias = fake_home / "Code"
+    if not alias.exists():
+        alias.symlink_to(fake_home / "code", target_is_directory=True)
+    s = client.get("/api/fs/suggestions")[1]
+    assert [p["name"] for p in s["projects"]] == ["shop"]
+    labels = [p["label"] for p in s["places"]]
+    assert "code" in labels and "Code" not in labels
+
+
 # ------------------------------------------------------------- folders
 def test_add_protect_pause_remove(client, fake_home):
     root = make_project(fake_home)
@@ -141,7 +155,8 @@ def test_add_protect_pause_remove(client, fake_home):
     assert code == 400 and "home folder" in res["error"]
     fid, st = add_and_wait(client, root)
     assert st["state"] == "protected" and st["versions"] == 1 and st["protected"], st
-    assert (root / ".rewind").is_dir() and (root / ".rewindignore").exists()
+    repo = Repo.find(root)
+    assert repo.is_global and not (root / ".rewind").exists() and (root / ".rewindignore").exists()
     assert client.post("/api/folders/add", {"path": str(root)})[0] == 400  # already there
     code, st, _ = client.post("/api/f/%s/protect" % fid, {"on": False})
     assert st["state"] == "paused" and not st["watching"]
@@ -149,7 +164,7 @@ def test_add_protect_pause_remove(client, fake_home):
     assert st["state"] == "protected"
     code, res, _ = client.post("/api/folders/remove", {"id": fid, "delete_history": True})
     assert res == {"removed": True, "history_deleted": True}
-    assert not (root / ".rewind").exists() and (root / "index.html").exists()
+    assert not repo.store.exists() and (root / "index.html").exists()
     assert client.get("/api/state")[1]["folders"] == []
     kinds = [e["kind"] for e in client.get("/api/activity")[1]["events"]]
     assert kinds[0] == "removed" and "protected" in kinds and "paused" in kinds
@@ -159,11 +174,12 @@ def test_add_with_global_store_and_keep_history_on_remove(client, fake_home):
     root = make_project(fake_home)
     fid, st = add_and_wait(client, root, protect=False)
     assert st["state"] == "paused"
+    home_store = Repo.find(root).store
     other = make_project(fake_home, "other")
-    code, res, _ = client.post("/api/folders/add", {"path": str(other), "global_store": True, "protect": False})
-    assert code == 200 and not (other / ".rewind").exists()
+    code, res, _ = client.post("/api/folders/add", {"path": str(other), "global_store": False, "protect": False})
+    assert code == 200 and (other / ".rewind").is_dir()
     client.post("/api/folders/remove", {"id": fid})
-    assert (root / ".rewind").exists()  # history kept unless asked
+    assert home_store.exists()  # history kept unless asked
 
 
 def test_overview_preview_apply_and_conflict(client, fake_home):

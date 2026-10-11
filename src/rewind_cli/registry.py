@@ -6,8 +6,9 @@ Everything lives under ``~/.rewind`` (or ``$REWIND_HOME``)::
     settings.json    app-wide settings (notifications, onboarding)
     activity.jsonl   one JSON event per line, newest last (trimmed automatically)
 
-A folder's own history and configuration stay in its store (``.rewind/`` or
-``~/.rewind/projects/<hash>``); the registry only remembers *which* folders the
+A folder's own history and configuration stay in its store
+(``~/.rewind/projects/<hash>`` by default, or ``.rewind/`` inside the folder
+when that store already exists or the user opted in); the registry only remembers *which* folders the
 app shows and whether the user wants them watched.
 """
 
@@ -187,7 +188,7 @@ def check_folder(path):
     return out
 
 
-def setup_folder(path, global_store=False):
+def setup_folder(path, global_store=None):
     """Initialise a Rewind store for ``path`` if needed and write the default ignore file.
 
     Returns the Repo. Does not take the first snapshot (that can be slow).

@@ -2,22 +2,25 @@
 # Rewind installer: installs the `rewind` CLI with uv, pipx, or pip (in that order),
 # then adds a Rewind launcher (Applications on macOS, the app menu on Linux).
 #
-#   curl -fsSL https://raw.githubusercontent.com/rushi053/rewind/main/install.sh | sh
+# Supported install (rewind-cli is not on PyPI yet):
+#   pipx install git+https://github.com/rushi053/rewind
 #
-# (Yes, Rewind's own seatbelt flags `curl | sh`. Read this script first; it is short.)
+# This script does the same install, then adds a launcher. Do not pipe it from
+# curl until you have read it: Rewind's seatbelt flags `curl | sh`, and the
+# copy of this file on GitHub main is what that URL would run.
 #
 # Environment:
-#   REWIND_VERSION   install a specific version, e.g. 0.1.0
-#   REWIND_SOURCE    install from somewhere else, e.g. git+https://github.com/rushi053/rewind
+#   REWIND_VERSION   install a tag, e.g. 0.2.0 (git tag v0.2.0; none exist yet)
+#   REWIND_SOURCE    override the package, e.g. rewind-cli once it is published
 #   REWIND_NO_LAUNCHER=1   don't create the Rewind launcher
 #   REWIND_AUTOSTART=1     also start Rewind at login (keeps folders protected after a reboot)
 set -eu
 
-pkg="rewind-cli"
-if [ -n "${REWIND_SOURCE:-}" ]; then
-  pkg="$REWIND_SOURCE"
-elif [ -n "${REWIND_VERSION:-}" ]; then
-  pkg="rewind-cli==$REWIND_VERSION"
+# rewind-cli is not on PyPI yet. Install from git so this script cannot 404.
+# After the owner publishes, REWIND_SOURCE=rewind-cli selects the package.
+pkg="${REWIND_SOURCE:-git+https://github.com/rushi053/rewind}"
+if [ -z "${REWIND_SOURCE:-}" ] && [ -n "${REWIND_VERSION:-}" ]; then
+  pkg="git+https://github.com/rushi053/rewind@v${REWIND_VERSION#v}"
 fi
 
 say() { printf '%s\n' "$*"; }

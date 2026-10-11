@@ -32,6 +32,27 @@ DEFAULT_PORT = 47823
 SUPERVISE_EVERY = 15.0
 _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
+
+def _path_key(path):
+    """Identity for a directory.
+
+    ``os.path.normcase`` does not fold case on macOS, and ``realpath`` keeps
+    the spelling you asked for, so ``~/code`` and ``~/Code`` stay two strings
+    on a case-insensitive volume. The inode is the same directory. Linux
+    keeps ``code`` and ``Code`` apart because they are different inodes;
+    a symlink to the same directory still collapses.
+    """
+    text = os.fspath(path)
+    try:
+        st = os.stat(text)
+        return (st.st_dev, st.st_ino)
+    except OSError:
+        try:
+            text = os.path.realpath(text)
+        except OSError:
+            text = os.path.abspath(text)
+        return ("path", os.path.normcase(text))
+
 GUARD_MODES = ("block", "snapshot", "warn", "off")
 
 
@@ -160,14 +181,20 @@ class AppApi:
     def suggestions(self):
         home = Path.home()
         places = []
+        seen_places = set()
         for label, rel in (("Home", ""), ("Desktop", "Desktop"), ("Documents", "Documents"), ("code", "code"),
                            ("Code", "Code"), ("Projects", "Projects"), ("projects", "projects"), ("dev", "dev"),
                            ("Developer", "Developer"), ("src", "src"), ("repos", "repos"), ("GitHub", "GitHub"),
                            ("workspace", "workspace")):
             p = home / rel if rel else home
-            if p.is_dir() and str(p) not in [x["path"] for x in places]:
-                places.append({"label": label if rel else "Home", "path": str(p)})
-        protected = {f["path"] for f in registry.load()}
+            if not p.is_dir():
+                continue
+            key = _path_key(p)
+            if key in seen_places:
+                continue
+            seen_places.add(key)
+            places.append({"label": label if rel else "Home", "path": str(p)})
+        protected = {_path_key(f["path"]) for f in registry.load()}
         projects = []
         seen = set()
         for place in places:
@@ -183,10 +210,11 @@ class AppApi:
                 except OSError:
                     continue
                 child = Path(e.path)
-                if str(child) in seen or str(child) in protected:
+                key = _path_key(child)
+                if key in seen or key in protected:
                     continue
                 if (child / ".git").exists() or (child / ".rewind").exists():
-                    seen.add(str(child))
+                    seen.add(key)
                     try:
                         mtime = e.stat().st_mtime
                     except OSError:
@@ -196,11 +224,11 @@ class AppApi:
         return {"places": places, "projects": projects[:8]}
 
     # -------------------------------------------------------------- folders
-    def add_folder(self, path, global_store=False, protect=True):
+    def add_folder(self, path, global_store=None, protect=True):
         check = registry.check_folder(path)
         if not check["ok"]:
             raise ApiError(400, check["error"])
-        repo = registry.setup_folder(check["path"], global_store=bool(global_store))
+        repo = registry.setup_folder(check["path"], global_store=global_store)
         entry = registry.register(check["path"], protected=bool(protect), source="app")
         fid = entry["id"]
         with self.lock:
@@ -646,7 +674,7 @@ def make_handler(api, token):
                         result = api.tools(one("f"))
                 else:
                     if path == "/api/folders/add":
-                        result = api.add_folder(body.get("path", ""), body.get("global_store", False), body.get("protect", True))
+                        result = api.add_folder(body.get("path", ""), body.get("global_store", None), body.get("protect", True))
                     elif path == "/api/folders/remove":
                         result = api.remove_folder(body["id"], bool(body.get("delete_history")))
                     elif path == "/api/settings":
@@ -722,7 +750,9 @@ def make_server(port=0, token=None):
     """Create (but don't start) the app server. Returns (server, url, token, api)."""
     token = token or get_token()
     api = AppApi()
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(api, token))
+    from .ui import LoopbackServer
+
+    server = LoopbackServer(("127.0.0.1", port), make_handler(api, token))
     server.daemon_threads = True
     url = "http://127.0.0.1:%d/?t=%s" % (server.server_address[1], token)
     api.on_quit = server.shutdown
@@ -808,11 +838,23 @@ def serve_foreground(port=0, open_browser=False, supervise=True):
     return 0
 
 
+def _log_tail(path, limit=40):
+    try:
+        lines = Path(path).read_text(errors="replace").splitlines()
+    except OSError as exc:
+        return "(could not read %s: %s)" % (path, exc)
+    if not lines:
+        return "(app.log is empty)"
+    return "\n".join(lines[-limit:])
+
+
 def start_background(port=0, timeout=15.0):
     """Start the app server as a detached process and wait until it answers."""
     rewind_home().mkdir(parents=True, exist_ok=True)
-    log = open(str(rewind_home() / "app.log"), "ab")
-    cmd = [sys.executable, "-m", "rewind_cli", "app", "--foreground", "--no-open"]
+    log_path = rewind_home() / "app.log"
+    log = open(str(log_path), "ab")
+    # -u so a crash traceback reaches app.log instead of sitting in a block buffer.
+    cmd = [sys.executable, "-u", "-m", "rewind_cli", "app", "--foreground", "--no-open"]
     if port:
         cmd += ["--port", str(port)]
     kwargs = dict(stdin=subprocess.DEVNULL, stdout=log, stderr=log, cwd=str(Path.home()))
@@ -820,7 +862,10 @@ def start_background(port=0, timeout=15.0):
         kwargs["creationflags"] = 0x00000008 | 0x00000200 | 0x08000000  # DETACHED | NEW_GROUP | NO_WINDOW
     else:
         kwargs["start_new_session"] = True
-    proc = subprocess.Popen(cmd, **kwargs)
+    try:
+        proc = subprocess.Popen(cmd, **kwargs)
+    finally:
+        log.close()
     deadline = time.time() + timeout
     while time.time() < deadline:
         info = running()
@@ -829,7 +874,13 @@ def start_background(port=0, timeout=15.0):
         if proc.poll() is not None:
             break
         time.sleep(0.1)
-    raise RewindError("the Rewind app did not start; see %s" % (rewind_home() / "app.log"))
+    state = "still running, pid %d" % proc.pid if proc.poll() is None else "exited %s" % proc.returncode
+    if proc.poll() is None:
+        try:
+            proc.kill()
+        except OSError:
+            pass
+    raise RewindError("the Rewind app did not start (%s).\n--- %s ---\n%s" % (state, log_path, _log_tail(log_path)))
 
 
 def ensure_running(port=0):

@@ -1,94 +1,39 @@
 # Rewind
 
-<p align="center"><a href="docs/demo.mp4"><img src="docs/demo.gif" alt="Demo: an agent runs rm -rf under rewind run, the seatbelt blocks git reset --hard, and rewind undo --session brings every file back" width="960"></a></p>
+[![CI](https://github.com/rushi053/rewind/actions/workflows/ci.yml/badge.svg)](https://github.com/rushi053/rewind/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/rushi053/rewind)](LICENSE)
 
-**An undo button for AI coding agents.** Rewind snapshots every file in your project (untracked files like `.env` and the `.git` directory included) before and while an agent works, so any change it makes can be rolled back with one command.
+**Claude Code's `/rewind` does not undo `rm`.** Its checkpoints track files Claude's own edit tools change, and [the docs say bash changes are not tracked](https://code.claude.com/docs/en/checkpointing). **Cursor's checkpoints** snapshot the files that agent modified in that chat and [restore those files only](https://cursor.com/docs/agent/overview), not the conversation, and they are separate from Git. Neither one puts back a shell-deleted `.env`, another untracked file, or `.git`, and each one only covers its own tool.
+
+Rewind snapshots the whole project before a command runs, then puts that tree back. Untracked files, `.env`, and `.git` included. One install covers Claude Code, Cursor, Codex, Gemini, and anything you start with `rewind run`.
+
+<p align="center"><a href="docs/demo.mp4"><img src="docs/demo.gif" alt="Demo: a script deletes files, including an untracked .env, then rewind undo --session restores the tree" width="960"></a></p>
+
+## Quickstart
+
+```sh
+pipx install "git+https://github.com/rushi053/rewind"
+rewind init
+rewind run -- claude
+rewind oops
+```
+
+`rewind oops` shows what will change, then undoes the latest agent session. `rewind redo` puts that session's result back. `uv tool install "git+https://github.com/rushi053/rewind"` is the same install. `rewind-cli` is not on PyPI yet, so this does not use a package index.
+
+## How this compares
+
+| | Shell deletions (`rm`, `git reset --hard`) | Gitignored files (`.env`) | `.git` | Which tools |
+|---|---|---|---|---|
+| [Claude Code `/rewind`](https://code.claude.com/docs/en/checkpointing) | Not tracked. The docs: checkpoints do not track files modified by bash (`rm`, `mv`, `cp`). | Only if Claude's file tools wrote them | Not part of the checkpoint | Claude Code only |
+| [Cursor checkpoints](https://cursor.com/docs/agent/overview) | Docs describe a snapshot of files the agent modified in that chat. Restore reverts files only, not the chat, and is separate from Git. They do not document restoring a shell-deleted untracked file. | Not described | Not described | Cursor only |
+| [ckpt](https://github.com/mohshomis/ckpt) | `ckpt restore` is `git reset --hard` to a commit on a hidden branch | A git commit does not include gitignored files | The history *is* git | Any agent that can run a shell |
+| [rewind-ai](https://github.com/dakshgulecha/rewind-ai) | Shadow commits under `refs/rewind/`. Its README says gitignored files are not captured | Not captured | Checkpoints are git refs in the repo | A file watcher; any agent that writes files |
+| [agent-undo](https://github.com/peaktwilight/agent-undo) | `au oops` rolls back a burst of file writes it snapshotted. `.gitignore` is respected | Not captured when gitignored | Not described | Claude Code, Cursor, Cline, Aider, Codex |
+| **Rewind** | The tree from before the command, including files a shell deleted | Snapshotted unless you list them in `.rewindignore` | Snapshotted and restored byte for byte | Claude Code, Codex, Gemini, Cursor, and `rewind run -- <anything>` |
 
 <p align="center"><img src="docs/log.svg" alt="rewind log showing a Claude Code session and a wrapped aider session, then rewind undo --session" width="820"></p>
 
-Works with Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop, Windsurf, VS Code, Aider, OpenCode, or any script. Pure Python standard library: no runtime dependencies, nothing to configure. Use it from the terminal, or from the Rewind app if you'd rather never open one.
-
-## For everyone: the Rewind app
-
-<p align="center"><img src="docs/app-home.png" alt="The Rewind app: two protected folders, a banner saying a dangerous command from Claude Code was blocked, and recent activity" width="900"></p>
-
-The app is a local control center that runs in your browser. It does everything the CLI does, in plain language:
-
-- **Protect a folder.** Pick it from the projects Rewind finds, or browse to it. Rewind saves a copy of every file (including `.env` and other files Git ignores) and keeps saving as things change. One switch pauses or resumes it.
-- **Undo last change**, with a preview first: "1 file will come back, 2 files will change back and 1 file will be removed." If you change your mind, Redo puts it back.
-- **Go back in time** to 5 minutes ago, 1 hour ago, this morning, yesterday, or any saved moment on a slider. You always see what will change before you confirm, and your current files are saved first so going back can be undone too.
-- **Recover deleted files** one at a time or in bulk, without touching anything else.
-- **Connect your AI tools** in one click. Rewind detects Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop, Windsurf and VS Code, shows you the exact settings file it will change and the diff, and backs that file up to `~/.rewind/backups/` before writing.
-- **Settings in plain words**: what happens when an AI tool tries something dangerous (block, save a copy first, warn, or off), how long to keep history, how much space it uses and a Clean up button, notifications, and start at login.
-- **Activity**: every blocked command, restore and connection, across all folders. When the seatbelt blocks something you also get a desktop notification (best effort: `notify-send` on Linux, `osascript` on macOS).
-
-| | | |
-|---|---|---|
-| <img src="docs/app-go-back.png" alt="Go back in time: presets, a slider, and a preview reading 3 files will come back, 2 files will change back and 1 file will be removed" width="290"> | <img src="docs/app-recover.png" alt="Deleted files with a Bring back button on each" width="290"> | <img src="docs/app-connect-confirm.png" alt="Connect Cursor: the exact file, a diff of the change, and a note that a backup is saved first" width="290"> |
-| Go back in time | Recover deleted files | Connect AI tools (with the diff) |
-| <img src="docs/app-folder.png" alt="A folder's overview: Undo last change, Go back in time, the last AI session, deleted files, recent changes" width="290"> | <img src="docs/app-onboarding.png" alt="First run: pick a folder" width="290"> | <img src="docs/app-settings.png" alt="Settings: safety mode, history, notifications, start at login, storage" width="290"> |
-| A folder | First run | Settings |
-
-More: [onboarding step 2](docs/app-onboarding-tools.png), [connect screen](docs/app-connect.png), [activity](docs/app-activity.png), [technical timeline](docs/app-timeline.png), [dark mode](docs/app-home-dark.png) (every screen also has a `-dark` or `-light` variant in `docs/`), and a [short screen recording of the motion](docs/app-motion.mp4). These screenshots come from `scripts/screenshots.py`, which builds a demo home folder with [`scripts/make-app-demo.py`](scripts/make-app-demo.py) using Rewind's real hook, restore and seatbelt code; only the snapshot timestamps are spread over a day afterwards so the time slider has something to show.
-
-### Install it without a terminal (almost)
-
-You need one command, once:
-
-```sh
-# macOS / Linux: installs Rewind with uv or pipx, then adds Rewind to Applications / your app menu
-curl -fsSL https://raw.githubusercontent.com/rushi053/rewind/main/install.sh | sh
-```
-
-```powershell
-# Windows (PowerShell): installs Rewind, then adds it to the Start menu and Desktop
-irm https://raw.githubusercontent.com/rushi053/rewind/main/install.ps1 | iex
-```
-
-(Rewind's own seatbelt flags `curl | sh`. Read [install.sh](install.sh) and [install.ps1](install.ps1) first; they are short.) After that, open **Rewind** like any other app. The first run walks you through three steps: pick a folder, connect your AI tools, done.
-
-Already have it installed? `rewind app` opens it, and `rewind app install-launcher` adds the launcher:
-
-| | launcher | start at login (`rewind app --autostart on`, or the switch in Settings) |
-|---|---|---|
-| macOS | `~/Applications/Rewind.app`, a minimal bundle whose executable runs `rewind app`. Also buildable with [`scripts/build-macos-app.sh`](scripts/build-macos-app.sh). | LaunchAgent `~/Library/LaunchAgents/dev.rewind.app.plist` |
-| Linux | `~/.local/share/applications/rewind.desktop` plus icon | systemd user unit `rewind-app.service`, or `~/.config/autostart/rewind.desktop` without systemd |
-| Windows | `%LOCALAPPDATA%\Rewind\Rewind.vbs` (no console window) and `Rewind.bat`, with Desktop and Start menu shortcuts | `Rewind.vbs` in your Startup folder |
-
-Generic copies that rely on `rewind` being on your PATH are in [`scripts/launchers/`](scripts/launchers/).
-
-**How it runs.** `rewind app` starts one background server per user on `127.0.0.1` (port 47823 if free), opens your browser, and exits; running it again reuses the server that's already up. Protecting a folder starts a background watcher for it (the same one as `rewind watch --daemon`), and the app restarts watchers that die. Closing the browser tab changes nothing; `rewind app stop` stops the server, and watchers keep protecting your folders. With start at login on, protection resumes after a reboot. The app keeps its list of folders in `~/.rewind/registry.json`; each folder's history stays where it always was (`.rewind/` inside it, or `~/.rewind/projects/`).
-
-**Security.** The API only answers requests that carry the token from `~/.rewind/app-token` (readable only by you) in a header, with a `Host` of `127.0.0.1`/`localhost`, and rejects cross-origin POSTs. The folder browser lists folder names only, never file contents. The page has a strict Content-Security-Policy and loads nothing from the internet; its typeface (Geist and Geist Mono, SIL Open Font License) is bundled with Rewind.
-
-**What was tested.** Everything above was built and tested on Linux: the app's API and every screen are covered by the test suite and a headless-Chromium click-through ([`scripts/ui-smoke.py`](scripts/ui-smoke.py)) that protects a folder, undoes, goes back in time, recovers a file, connects a tool and walks the onboarding, checking the files on disk after each step. The macOS bundle, LaunchAgent, Windows `.vbs`/`.bat`/shortcuts and Startup entry are generated by tested code (their contents are checked in tests), but they have **not been run on macOS or Windows yet**. Reports welcome.
-
-## Quickstart (terminal)
-
-```sh
-pipx install rewind-cli        # or: uv tool install rewind-cli
-rewind init                    # in your project; offers to install agent hooks
-rewind run -- claude           # or codex, aider, gemini, ./any-script.sh
-```
-
-When the agent wrecks something:
-
-```sh
-rewind undo --session          # put the whole session back
-rewind undo                    # or just the last change
-rewind back 10m                # or the project as it was 10 minutes ago
-rewind recover .env            # or one deleted file
-```
-
-Every restore takes a safety snapshot first, so an undo can itself be undone (`rewind redo`).
-
-Other ways to install: `uvx rewind-cli` runs it without installing, and there is a one-line installer that picks uv, pipx or pip:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/rushi053/rewind/main/install.sh | sh
-```
-
-(Rewind's own seatbelt flags `curl | sh`. [Read the script](install.sh) first; it is 75 lines. Set `REWIND_NO_LAUNCHER=1` to skip the app launcher.)
+Pure Python standard library: no runtime dependencies. The terminal commands above are enough. The Rewind app, further down, is the same thing in a browser.
 
 ## Why not just git?
 
@@ -118,7 +63,7 @@ Rewind is not a replacement for git or for backups. It is a local, short-term sa
            (block / snapshot /    └────────┬─────────┘
             warn on rm -rf, ...)           │
                                            ▼
-   .rewind/ ── objects/ab/cdef…   file contents, sha256-addressed, zlib-compressed, stored once
+   store/ ── objects/ab/cdef…   file contents, sha256-addressed, zlib-compressed, stored once
             ├─ snapshots/0042.json  {time, session, tool, command, stats, manifest → object}
             ├─ sessions/s7.json     {agent, command, start snapshot, exit code, duration}
             └─ index.json           stat cache that makes no-op snapshots cheap
@@ -128,13 +73,13 @@ Rewind is not a replacement for git or for backups. It is a local, short-term sa
 - A **session** groups the snapshots of one agent run: `rewind run` creates one per command, and hooks create one per agent conversation (`session_id`). `rewind undo --session` restores the session's starting snapshot.
 - A **restore** computes the difference between your files and the target snapshot, records a safety snapshot of the current state, then writes, recreates and deletes files. File modes, symlinks, binary files, renames and file/directory swaps are handled. Files matched by `.rewindignore` are never touched.
 
-The store lives in `.rewind/` (it adds its own `.gitignore`), or in `~/.rewind/projects/<hash>` with `rewind init --global`, which also keeps it out of the agent's reach.
+The store for a new project lives in `~/.rewind/projects/<hash>`, outside the tree an agent can read. `rewind init --local` opts into `.rewind/` inside the project (that directory gets its own `.gitignore`). If `.rewind/project.json` is already there, Rewind keeps using it. Snapshots of `.env` are plaintext copies on this machine, not encrypted.
 
 ## The seatbelt
 
 <p align="center"><img src="docs/guard.svg" alt="rewind guard check output" width="820"></p>
 
-When hooks are installed, every shell command an agent wants to run first goes through `rewind guard`. It parses the command (`shlex`), splits `;`, `&&`, `||` and pipes, follows `cd`, unwraps `sudo`, `env`, `timeout`, `xargs`, `bash -c` and `eval`, and checks each part against rules including:
+When hooks are installed, every shell command an agent wants to run first goes through `rewind guard`. It parses the command (`shlex`), splits `;`, `&&`, `||` and pipes, follows `cd`, unwraps `sudo`, `env`, `timeout`, `xargs`, `busybox`, `toybox`, `bash -c` and `eval`, and looks through `python -c` / `python3 -c`, `perl -e`, `ruby -e` and `node -e` one-liners for `shutil.rmtree`, `os.remove` on a broad path, `unlink` / `remove_tree`, `FileUtils.rm_rf` and `fs.rmSync`. It checks each part against rules including:
 
 - `rm -r` on `/`, system directories, `~`, paths outside the project, the project itself, `.git`, `.rewind`, or an unexpanded `$VAR`
 - `git reset --hard`, `git clean -f`, `git checkout -- .` / `git restore .`, force-push to `main`/`master`, `git stash clear`, `git reflog expire --expire=now`
@@ -153,7 +98,7 @@ When hooks are installed, every shell command an agent wants to run first goes t
 
 Catastrophic commands (`rm -rf /`, `rm -rf ~`, `mkfs`, `dd` to a disk, fork bombs) are blocked in every mode except `off`. Allow a specific command with `rewind guard allow "git reset --hard origin/*"` or disable a rule with `rewind config set guard.disable '["git-clean"]'`. Try it without an agent: `rewind guard check "<command>"`.
 
-This is a heuristic, not a sandbox. It cannot see inside a script the agent writes and then runs, which is why Rewind also snapshots before every command regardless.
+This is a heuristic, not a sandbox. It cannot see inside a script file the agent writes and then runs, or a delete built out of variables, which is why Rewind also snapshots before every command regardless. `rm -rf node_modules` stays allowed.
 
 ## Agent integration
 
@@ -178,7 +123,46 @@ The app's **Connect AI tools** screen does 1 and 2 with one click each, showing 
 
 "Not tried" means the files Rewind writes match each tool's published documentation and are covered by tests, but nobody has yet confirmed the tool picks them up. The MCP server itself is tested over real stdio with JSON-RPC messages shaped like a client's.
 
-`rewind run -- claude` and hooks combine: hook snapshots join the `run` session via the `REWIND_SESSION` environment variable. Hooks fail open: if Rewind itself errors, the agent is never blocked (errors go to `.rewind/hook-errors.log`).
+`rewind run -- claude` and hooks combine: hook snapshots join the `run` session via the `REWIND_SESSION` environment variable. Hooks fail open: if Rewind itself errors, the agent is never blocked (errors go to `hook-errors.log` in the store).
+
+## The Rewind app
+
+<p align="center"><img src="docs/app-home.png" alt="The Rewind app: two protected folders, a banner saying a dangerous command from Claude Code was blocked, and recent activity" width="900"></p>
+
+The app is a local control center that runs in your browser. It does everything the CLI does, in plain language:
+
+- **Protect a folder.** Pick it from the projects Rewind finds, or browse to it. Rewind saves a copy of every file (including `.env` and other files Git ignores) and keeps saving as things change. One switch pauses or resumes it. New folders keep that history in `~/.rewind`; "Inside the folder" is an explicit opt-in.
+- **Undo last change**, with a preview first: "1 file will come back, 2 files will change back and 1 file will be removed." If you change your mind, Redo puts it back.
+- **Go back in time** to 5 minutes ago, 1 hour ago, this morning, yesterday, or any saved moment on a slider. You always see what will change before you confirm, and your current files are saved first so going back can be undone too.
+- **Recover deleted files** one at a time or in bulk, without touching anything else.
+- **Connect your AI tools** in one click. Rewind detects Claude Code, Codex CLI, Gemini CLI, Cursor, Claude Desktop, Windsurf and VS Code, shows you the exact settings file it will change and the diff, and backs that file up to `~/.rewind/backups/` before writing.
+- **Settings in plain words**: what happens when an AI tool tries something dangerous (block, save a copy first, warn, or off), how long to keep history, how much space it uses and a Clean up button, notifications, and start at login.
+- **Activity**: every blocked command, restore and connection, across all folders. When the seatbelt blocks something you also get a desktop notification (best effort: `notify-send` on Linux, `osascript` on macOS).
+
+| | | |
+|---|---|---|
+| <img src="docs/app-go-back.png" alt="Go back in time: presets, a slider, and a preview reading 3 files will come back, 2 files will change back and 1 file will be removed" width="290"> | <img src="docs/app-recover.png" alt="Deleted files with a Bring back button on each" width="290"> | <img src="docs/app-connect-confirm.png" alt="Connect Cursor: the exact file, a diff of the change, and a note that a backup is saved first" width="290"> |
+| Go back in time | Recover deleted files | Connect AI tools (with the diff) |
+| <img src="docs/app-folder.png" alt="A folder's overview: Undo last change, Go back in time, the last AI session, deleted files, recent changes" width="290"> | <img src="docs/app-onboarding.png" alt="First run: pick a folder" width="290"> | <img src="docs/app-settings.png" alt="Settings: safety mode, history, notifications, start at login, storage" width="290"> |
+| A folder | First run | Settings |
+
+More: [onboarding step 2](docs/app-onboarding-tools.png), [connect screen](docs/app-connect.png), [activity](docs/app-activity.png), [technical timeline](docs/app-timeline.png), [dark mode](docs/app-home-dark.png) (every screen also has a `-dark` or `-light` variant in `docs/`), and a [short screen recording of the motion](docs/app-motion.mp4). These screenshots come from `scripts/screenshots.py`, which builds a demo home folder with [`scripts/make-app-demo.py`](scripts/make-app-demo.py) using Rewind's real hook, restore and seatbelt code; only the snapshot timestamps are spread over a day afterwards so the time slider has something to show.
+
+After the quickstart install, `rewind app` opens it and `rewind app install-launcher` adds a launcher. [`install.sh`](install.sh) and [`install.ps1`](install.ps1) install from the same git URL and then add that launcher. Run them from a clone (`sh install.sh`). They are not a `curl | sh` install: Rewind's seatbelt flags that pattern, and the package name they used to request is not on PyPI.
+
+| | launcher | start at login (`rewind app --autostart on`, or the switch in Settings) |
+|---|---|---|
+| macOS | `~/Applications/Rewind.app`, a minimal bundle whose executable runs `rewind app`. Also buildable with [`scripts/build-macos-app.sh`](scripts/build-macos-app.sh). | LaunchAgent `~/Library/LaunchAgents/dev.rewind.app.plist` |
+| Linux | `~/.local/share/applications/rewind.desktop` plus icon | systemd user unit `rewind-app.service`, or `~/.config/autostart/rewind.desktop` without systemd |
+| Windows | `%LOCALAPPDATA%\Rewind\Rewind.vbs` (no console window) and `Rewind.bat`, with Desktop and Start menu shortcuts | `Rewind.vbs` in your Startup folder |
+
+Generic copies that rely on `rewind` being on your PATH are in [`scripts/launchers/`](scripts/launchers/).
+
+**How it runs.** `rewind app` starts one background server per user on `127.0.0.1` (port 47823 if free), opens your browser, and exits; running it again reuses the server that's already up. Protecting a folder starts a background watcher for it (the same one as `rewind watch --daemon`), and the app restarts watchers that die. Closing the browser tab changes nothing; `rewind app stop` stops the server, and watchers keep protecting your folders. With start at login on, protection resumes after a reboot. The app keeps its list of folders in `~/.rewind/registry.json`. A new folder's history goes to `~/.rewind/projects/<hash>`; an existing `.rewind/` inside the folder is kept.
+
+**Security.** The API only answers requests that carry the token from `~/.rewind/app-token` (readable only by you) in a header, with a `Host` of `127.0.0.1`/`localhost`, and rejects cross-origin POSTs. The folder browser lists folder names only, never file contents. The page has a strict Content-Security-Policy and loads nothing from the internet; its typeface (Geist and Geist Mono, SIL Open Font License) is bundled with Rewind.
+
+**What was tested.** Everything above was built and tested on Linux: the app's API and every screen are covered by the test suite and a headless-Chromium click-through ([`scripts/ui-smoke.py`](scripts/ui-smoke.py)) that protects a folder, undoes, goes back in time, recovers a file, connects a tool and walks the onboarding, checking the files on disk after each step. The macOS bundle, LaunchAgent, Windows `.vbs`/`.bat`/shortcuts and Startup entry are generated by tested code (their contents are checked in tests), but they have **not been run on macOS or Windows yet**. Reports welcome.
 
 ## MCP server
 
@@ -237,12 +221,13 @@ Set it up with `rewind mcp install <client>` (it backs up the config file first 
 | | |
 |---|---|
 | `rewind app` / `app status\|stop` / `app --autostart on\|off` / `app install-launcher` | the Rewind app (see above) |
-| `rewind init [--global] [--hooks claude,codex]` | set up the project and take the first snapshot |
+| `rewind init [--local] [--hooks claude,codex]` | set up the project and take the first snapshot (store defaults to `~/.rewind`) |
 | `rewind run [--name N] -- <cmd>` | run a command as a recorded session |
 | `rewind watch [--daemon]` / `watch status` / `watch stop` | auto-snapshot as files change (polling, debounced) |
 | `rewind snap [-m msg]` | checkpoint now (no-op if nothing changed) |
+| `rewind oops` | preview, then undo the latest agent session (`rewind redo` puts it back) |
 | `rewind undo [paths]` / `rewind redo` | step back / forward through snapshots |
-| `rewind undo --session [sN]` | restore the state before an agent session |
+| `rewind undo --session [sN]` | restore the state before an agent session; `rewind redo` puts that session's result back |
 | `rewind restore <id> [paths…] [--keep-new]` | restore everything, or some paths/globs, from a snapshot |
 | `rewind back 10m` / `back "2 hours"` / `back 14:30` | restore the latest snapshot at or before a time |
 | `rewind recover <path\|glob>…` | bring back deleted files from the latest snapshot that had them, touching nothing else |
@@ -260,7 +245,7 @@ Snapshot references are numbers (`12` or `#12`), `HEAD`, or `HEAD~2`. Every comm
 
 ## Web UI (technical view)
 
-The app's **Timeline** tab embeds this view for each folder. On its own, `rewind ui` serves a single self-contained page on `127.0.0.1` with a random token in the URL, and opens your browser. No CDN, no build step.
+The app's **Timeline** tab is this history inside the app: snapshots, a file list with added and removed line counts, and the diff. Shortcuts (`j`/`k`, `?`, and the rest) work from the app itself. On its own, `rewind ui` serves a single self-contained page on `127.0.0.1` with a random token in the URL, and opens your browser. No CDN, no build step.
 
 <p align="center"><img src="docs/ui-dark.png" alt="Rewind web UI: session timeline, changed files, and a diff of a test file the agent deleted" width="900"></p>
 
@@ -270,7 +255,7 @@ The API only answers requests carrying the token in a header and a `Host` of `12
 
 ## Configuration
 
-`rewind config` prints every setting with its current value. Stored in `.rewind/config.json`.
+`rewind config` prints every setting with its current value. Stored in the project's store (`~/.rewind/projects/<hash>/config.json`, or `.rewind/config.json` with `--local`).
 
 | key | default | |
 |---|---|---|
@@ -303,11 +288,11 @@ A hook call costs roughly one no-op snapshot. These are single runs on one machi
 
 ## FAQ
 
-**Where are my secrets stored?** Snapshots of `.env` and similar files live in `.rewind/objects`, compressed but not encrypted, with the same permissions as your project. `.rewind/` contains a `.gitignore` of `*`, so git never picks it up. Use `rewind init --global` to keep the store in `~/.rewind` instead.
+**Where are my secrets stored?** Snapshots of `.env` and similar files live in `~/.rewind/projects/<hash>/objects` (or `.rewind/objects` if you opted into a store inside the project, or if one was already there), compressed but not encrypted, with your normal file permissions. `rewind init` prints that. An in-project `.rewind/` contains a `.gitignore` of `*`, so git never picks it up.
 
 **How much disk does it use?** Each distinct file version is stored once, zlib-compressed. Editing one line of a file stores one new compressed copy of that file. `rewind status` shows the store size and `rewind gc` applies the retention policy.
 
-**Can the agent delete the snapshots?** It could try. The seatbelt blocks `rm -r` on `.rewind` (`rm-rewind-store`), and `--global` puts the store outside the project. A determined process running as you can still delete anything you can.
+**Can the agent delete the snapshots?** It could try. The seatbelt blocks `rm -r` on `.rewind` and on `~/.rewind` (`rm-rewind-store`). New projects keep the store outside the project. A determined process running as you can still delete anything you can.
 
 **Does it slow the agent down?** Each hook call scans with `stat` only and hashes changed files; see Performance. Hook entries are installed with a 30 s timeout where the agent supports one, and they fail open.
 

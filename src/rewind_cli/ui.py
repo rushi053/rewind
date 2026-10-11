@@ -2,6 +2,7 @@
 
 import json
 import secrets
+import socketserver
 import sys
 import threading
 import webbrowser
@@ -10,7 +11,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import __version__, restore
-from .diff import diff_manifests, rows, summarize
+from .diff import diff_manifests, line_delta, rows, summarize
 from .scan import scan
 from .store import RewindError
 
@@ -74,7 +75,18 @@ class Api:
         changes = diff_manifests(old, new)
         meta = dict(meta)
         meta.pop("changes", None)
-        return {"meta": meta, "base": base, "stats": summarize(changes), "changes": [_change_json(c) for c in changes]}
+        items = []
+        for i, c in enumerate(changes):
+            item = _change_json(c)
+            # Line counts are what the file list shows. Cap the work so a
+            # snapshot of thousands of files still returns.
+            if i < 200:
+                delta = line_delta(self.repo, c)
+                if delta is not None:
+                    item["plus"] = delta["plus"]
+                    item["minus"] = delta["minus"]
+            items.append(item)
+        return {"meta": meta, "base": base, "stats": summarize(changes), "changes": items}
 
     def diff(self, sid, path, base="parent"):
         old, new, meta = self._pair(sid, base)
@@ -184,10 +196,25 @@ def make_handler(api, token, port_holder):
     return Handler
 
 
+class LoopbackServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer that does not reverse-resolve 127.0.0.1.
+
+    ``HTTPServer.server_bind`` calls ``socket.getfqdn("127.0.0.1")``. On macOS
+    that lookup goes to DNS and can block long enough that ``rewind app`` gives
+    up waiting for the server. The name is unused: the server is loopback only.
+    """
+
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = host
+        self.server_port = port
+
+
 def make_server(repo, port=0):
     token = secrets.token_urlsafe(24)
     holder = {}
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(Api(repo), token, holder))
+    server = LoopbackServer(("127.0.0.1", port), make_handler(Api(repo), token, holder))
     server.daemon_threads = True
     url = "http://127.0.0.1:%d/?t=%s" % (server.server_address[1], token)
     return server, url, token

@@ -129,12 +129,17 @@ class Lock:
                 delay = min(delay * 2, 0.1)
 
     def _stale(self):
+        """A lock is stale only when the process that wrote it is gone.
+
+        Age is not a reason to steal. A snapshot of a large tree can hold the
+        lock for longer than any fixed cutoff, and taking it from a live pid
+        lets two processes write the store at once.
+        """
         try:
             pid = int(self.path.read_text().strip() or "0")
-            age = time.time() - self.path.stat().st_mtime
         except (OSError, ValueError):
             return False
-        return (not _pid_alive(pid)) or age > 600
+        return not _pid_alive(pid)
 
     def release(self):
         self.depth -= 1
@@ -179,20 +184,46 @@ class Repo:
         raise NotInitialized("not a rewind project (run `rewind init` here first)")
 
     @classmethod
-    def init(cls, root, global_store=False):
+    def init(cls, root, global_store=None):
+        """Create or reuse the store for ``root``.
+
+        New projects keep history in ``~/.rewind/projects/<hash>`` so copies of
+        ``.env`` are not sitting inside the tree an agent can read. Pass
+        ``global_store=False`` to opt into ``<project>/.rewind`` instead.
+
+        An existing store is always reused. An older in-project ``.rewind`` is
+        kept (that is what ``find`` would open); history is not split across
+        two directories and nothing is migrated out from under the user.
+        ``store_note`` on the result is ``created-home``, ``created-local``,
+        ``reused-home``, or ``reused-local``.
+        """
         root = Path(root).resolve()
-        store = (rewind_home() / "projects" / project_hash(root)) if global_store else root / STORE_DIRNAME
+        local = root / STORE_DIRNAME
+        home = rewind_home() / "projects" / project_hash(root)
+        local_ready = (local / "project.json").exists()
+        home_ready = (home / "project.json").exists()
+        if local_ready:
+            # find() checks the in-project store first. Keep using it.
+            store, note = local, "reused-local"
+        elif home_ready:
+            store, note = home, "reused-home"
+        elif global_store is False:
+            store, note = local, "created-local"
+        else:
+            store, note = home, "created-home"
         for sub in ("objects", "snapshots", "sessions"):
             (store / sub).mkdir(parents=True, exist_ok=True)
         if not (store / "project.json").exists():
             write_json(store / "project.json", {"root": str(root), "created": time.time(), "version": 1}, indent=2)
         if not (store / "config.json").exists():
             (store / "config.json").write_text("{}\n", "utf-8")
-        if not global_store:
+        if store == local:
             gi = store / ".gitignore"
             if not gi.exists():
                 gi.write_text("# Rewind snapshot store -- never commit this.\n*\n", "utf-8")
-        return cls(root, store)
+        repo = cls(root, store)
+        repo.store_note = note
+        return repo
 
     @property
     def is_global(self):

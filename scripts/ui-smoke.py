@@ -21,6 +21,13 @@ DEMO = Path(os.environ.get("REWIND_DEMO_DIR", "/tmp/rewind-smoke"))
 PY = sys.executable
 
 
+def store_of(home, path):
+    """Home-folder store for a project created by the app (the default since 0.2)."""
+    import hashlib
+    digest = hashlib.sha256(str(Path(path).resolve()).encode("utf-8")).hexdigest()[:16]
+    return home / ".rewind" / "projects" / digest
+
+
 def wait_for(cond, timeout=15, what="condition"):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -68,7 +75,7 @@ def main():
 
             # 1. protection toggle on the home screen
             page.click("[data-toggle='%s']" % ids["notes-api"])
-            wait_for(lambda: (home / "code" / "notes-api" / ".rewind" / "watch.pid").exists(), what="watcher pid")
+            wait_for(lambda: (store_of(home, home / "code" / "notes-api") / "watch.pid").exists(), what="watcher pid")
             ok("home toggle started a watcher for notes-api")
 
             # 2. protect a new folder through the picker
@@ -77,7 +84,7 @@ def main():
             page.wait_for_selector("#pkMsg.ok")
             page.click("#pkProtect")
             page.wait_for_url("**#/f/*")
-            wait_for(lambda: (home / "code" / "blog" / ".rewind" / "project.json").exists(), what="blog store")
+            wait_for(lambda: (store_of(home, home / "code" / "blog") / "project.json").exists(), what="blog store")
             page.wait_for_selector(".pill.protected", timeout=20000)
             ok("picker protected ~/code/blog and it shows Protected")
 
@@ -126,7 +133,7 @@ def main():
             # 7. safety mode from settings applies to all folders
             page.goto(url + "#/settings")
             page.click("[data-mode='warn']")
-            wait_for(lambda: json.loads((web / ".rewind" / "config.json").read_text()).get("guard", {}).get("mode") == "warn", what="guard mode")
+            wait_for(lambda: json.loads((store_of(home, web) / "config.json").read_text()).get("guard", {}).get("mode") == "warn", what="guard mode")
             ok("safety mode set to warn in every folder")
 
             # 8. onboarding: pick ml-playground, skip tools, finish
@@ -144,9 +151,9 @@ def main():
 
             # 9. embedded timeline and the activity feed render
             page.goto(url + "#/f/%s/timeline" % ids["acme-web"])
-            frame = page.frame_locator("iframe.timeline")
-            frame.locator(".snap").first.wait_for()
-            n = frame.locator(".snap").count()
+            page.locator(".tl-snap").first.wait_for()
+            page.locator(".tl-file").first.wait_for()
+            n = page.locator(".tl-snap").count()
             page.goto(url + "#/activity")
             page.wait_for_selector("#act .row")
             titles = page.locator("#act .row .title").all_inner_texts()

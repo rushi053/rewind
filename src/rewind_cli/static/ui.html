@@ -12,7 +12,7 @@
 @font-face { font-family: "Geist Mono"; src: url("/fonts/GeistMono-Variable.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
 :root {
   --bg: #0b0b0c; --panel: #111113; --panel-2: #18181b; --hover: #1c1c20; --sel: #232328;
-  --border: #222226; --border-2: #2c2c32; --border-3: #3a3a42; --text: #ededef; --muted: #a8a8b2; --faint: #8b8b95; --ghost: #5d5d66;
+  --border: #222226; --border-2: #2c2c32; --border-3: #3a3a42; --text: #ededef; --muted: #a8a8b2; --faint: #8b8b95; --ghost: #89898f;
   --accent: #635fdd; --accent-text: #a8a6ff; --accent-bg: rgba(125,121,240,.13); --accent-ring: rgba(140,136,255,.45);
   --green: #4cc38a; --green-bg: rgba(76,195,138,.10); --green-strong: rgba(76,195,138,.20);
   --red: #ff7a7e; --red-bg: rgba(255,106,110,.09); --red-strong: rgba(255,106,110,.20);
@@ -27,7 +27,7 @@
 }
 :root[data-theme="light"] {
   --bg: #fbfbfb; --panel: #ffffff; --panel-2: #fafafa; --hover: #f3f3f4; --sel: #ececf6;
-  --border: #ebebed; --border-2: #dfdfe3; --border-3: #cfcfd5; --text: #111113; --muted: #56565f; --faint: #6f6f78; --ghost: #a1a1aa;
+  --border: #ebebed; --border-2: #dfdfe3; --border-3: #cfcfd5; --text: #111113; --muted: #56565f; --faint: #6f6f78; --ghost: #6e6e76;
   --accent: #5b5bd6; --accent-text: #4c4cc4; --accent-bg: rgba(91,91,214,.09); --accent-ring: rgba(91,91,214,.32);
   --green: #18794e; --green-bg: rgba(48,164,108,.09); --green-strong: rgba(48,164,108,.18);
   --red: #c62a2f; --red-bg: rgba(229,72,77,.07); --red-strong: rgba(229,72,77,.16);
@@ -179,7 +179,12 @@ main { min-width: 0; min-height: 0; display: flex; flex-direction: column; backg
 .embed .app { grid-template-rows: 1fr; grid-template-columns: minmax(250px, 27%) minmax(250px, 24%) 1fr; } .embed header { display: none; }
 .embed body, .embed .col, .embed main { background: transparent; }
 :root.embed { background: var(--panel); }
-@media (max-width: 1000px) { .app { grid-template-columns: 290px 1fr; } .col.files-col { display: none; } }
+@media (max-width: 1000px) {
+  body { overflow: auto; }
+  .app { grid-template-columns: 1fr; grid-template-rows: 50px minmax(160px, 28vh) minmax(150px, 26vh) minmax(240px, 1fr); height: auto; min-height: 100vh; }
+  header { grid-column: 1; }
+  .col.files-col { display: flex; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .toast .ok svg path { stroke-dashoffset: 0 !important; }

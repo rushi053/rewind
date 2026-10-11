@@ -74,7 +74,7 @@ def test_timeline_snapshot_diff(server):
     assert [s["id"] for s in data["snapshots"]] == [1, 2]
     _, body = get(base + "/api/snapshot?id=2", token)
     snap = json.loads(body)
-    assert snap["changes"] == [{"status": "M", "path": "src/app.py", "old_size": 15, "new_size": 12, "old_link": None, "new_link": None}]
+    assert snap["changes"] == [{"status": "M", "path": "src/app.py", "old_size": 15, "new_size": 12, "old_link": None, "new_link": None, "plus": 1, "minus": 1}]
     _, body = get(base + "/api/diff?id=2&path=src/app.py", token)
     d = json.loads(body)
     kinds = [row[0] for row in d["hunks"][0]]
