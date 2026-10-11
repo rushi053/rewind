@@ -55,6 +55,31 @@ def summarize(changes):
     return s
 
 
+def line_delta(repo, change):
+    """Added and removed line counts for one text change.
+
+    Returns None for binary files, files too large to diff, and symlink-only
+    changes. A rename with the same text is ``{"plus": 0, "minus": 0}``.
+    """
+    a = entry_bytes(repo, change.get("old"))
+    b = entry_bytes(repo, change.get("new"))
+    if is_binary(a) or is_binary(b) or len(a) > MAX_DIFF_BYTES or len(b) > MAX_DIFF_BYTES:
+        return None
+    if "l" in (change.get("old") or {}) or "l" in (change.get("new") or {}):
+        return None
+    al, bl = decode(a).splitlines(), decode(b).splitlines()
+    plus = minus = 0
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, al, bl, autojunk=False).get_opcodes():
+        if tag == "insert":
+            plus += j2 - j1
+        elif tag == "delete":
+            minus += i2 - i1
+        elif tag == "replace":
+            minus += i2 - i1
+            plus += j2 - j1
+    return {"plus": plus, "minus": minus}
+
+
 def is_binary(data):
     return b"\0" in data[:8192]
 

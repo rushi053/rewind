@@ -245,7 +245,7 @@ Snapshot references are numbers (`12` or `#12`), `HEAD`, or `HEAD~2`. Every comm
 
 ## Web UI (technical view)
 
-The app's **Timeline** tab embeds this view for each folder. On its own, `rewind ui` serves a single self-contained page on `127.0.0.1` with a random token in the URL, and opens your browser. No CDN, no build step.
+The app's **Timeline** tab is this history inside the app: snapshots, a file list with added and removed line counts, and the diff. Shortcuts (`j`/`k`, `?`, and the rest) work from the app itself. On its own, `rewind ui` serves a single self-contained page on `127.0.0.1` with a random token in the URL, and opens your browser. No CDN, no build step.
 
 <p align="center"><img src="docs/ui-dark.png" alt="Rewind web UI: session timeline, changed files, and a diff of a test file the agent deleted" width="900"></p>
 

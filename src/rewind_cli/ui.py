@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import __version__, restore
-from .diff import diff_manifests, rows, summarize
+from .diff import diff_manifests, line_delta, rows, summarize
 from .scan import scan
 from .store import RewindError
 
@@ -75,7 +75,18 @@ class Api:
         changes = diff_manifests(old, new)
         meta = dict(meta)
         meta.pop("changes", None)
-        return {"meta": meta, "base": base, "stats": summarize(changes), "changes": [_change_json(c) for c in changes]}
+        items = []
+        for i, c in enumerate(changes):
+            item = _change_json(c)
+            # Line counts are what the file list shows. Cap the work so a
+            # snapshot of thousands of files still returns.
+            if i < 200:
+                delta = line_delta(self.repo, c)
+                if delta is not None:
+                    item["plus"] = delta["plus"]
+                    item["minus"] = delta["minus"]
+            items.append(item)
+        return {"meta": meta, "base": base, "stats": summarize(changes), "changes": items}
 
     def diff(self, sid, path, base="parent"):
         old, new, meta = self._pair(sid, base)

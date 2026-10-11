@@ -66,7 +66,8 @@ def test_init_snap_log_status(cli, tmp_path, monkeypatch):
     code, out, _ = cli("log", "--files")
     assert '"second"' in out and "M a.txt" in out
     code, out, _ = cli("status")
-    assert "Working tree matches #2" in out
+    assert "2 snapshots, 0 sessions" in out
+    assert "Files match the last snapshot." in out
     code, out, _ = cli("init")
     assert "Already initialized" in out
 
@@ -80,6 +81,26 @@ def test_no_color_and_forced_color(project, cli, monkeypatch):
     term.set_color(None)
     code, out, _ = cli("log")
     assert "\033[" in out
+
+
+def test_status_plural_and_coloured_summary(project, cli, monkeypatch):
+    project.capture()
+    code, out, _ = cli("status")
+    assert code == 0
+    assert "1 snapshot, 0 sessions" in out
+    assert "Files match the last snapshot." in out
+    assert "\033[" not in out
+    write(project, "src/app.py", "print('changed')\n")
+    (project.root / "new.txt").write_text("x\n")
+    code, out, _ = cli("status")
+    assert "2 files differ." in out
+    assert "\033[" not in out
+    monkeypatch.delenv("NO_COLOR")
+    monkeypatch.setenv("REWIND_COLOR", "always")
+    term.set_color(None)
+    code, out, _ = cli("status")
+    assert "\033[" in out and "2 files differ." in out
+    term.set_color(None)
 
 
 def test_show_and_diff(project, cli):

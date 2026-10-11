@@ -144,9 +144,9 @@ def main():
 
             # 9. embedded timeline and the activity feed render
             page.goto(url + "#/f/%s/timeline" % ids["acme-web"])
-            frame = page.frame_locator("iframe.timeline")
-            frame.locator(".snap").first.wait_for()
-            n = frame.locator(".snap").count()
+            page.locator(".tl-snap").first.wait_for()
+            page.locator(".tl-file").first.wait_for()
+            n = page.locator(".tl-snap").count()
             page.goto(url + "#/activity")
             page.wait_for_selector("#act .row")
             titles = page.locator("#act .row .title").all_inner_texts()

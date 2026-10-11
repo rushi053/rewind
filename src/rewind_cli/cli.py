@@ -850,7 +850,7 @@ def cmd_gc(args):
 
 
 def cmd_status(args):
-    from .diff import diff_manifests, summarize
+    from .diff import diff_manifests
     from .hooks import AGENTS, installed
     from .scan import scan
     from .watch import daemon_pid
@@ -864,7 +864,7 @@ def cmd_status(args):
     row("project", repo.root)
     row("store", "%s%s" % (repo.store, term.dim("  (global)") if repo.is_global else ""))
     row("size", "%d objects, %s" % (count, term.size(nbytes)))
-    row("history", "%d snapshots, %d sessions" % (len(ids), len(repo.list_sessions())))
+    row("history", "%s, %s" % (_count(len(ids), "snapshot"), _count(len(repo.list_sessions()), "session")))
     pid = daemon_pid(repo)
     row("watcher", term.green("running (pid %d)" % pid) if pid else term.dim("off"))
     hooks = [a for a in AGENTS if installed(repo.root, a)]
@@ -874,15 +874,21 @@ def cmd_status(args):
     head = repo.get_snapshot(ids[-1])
     row("latest", "#%d  %s" % (head["id"], term.dim(term.ago(head["time"]))))
     changes = diff_manifests(repo.snapshot_files(head), scan(repo).files)
-    print()
-    if not changes:
-        print("Working tree matches #%d." % head["id"])
-    else:
-        print("Changes since #%d  %s" % (head["id"], term.stats_str(summarize(changes))))
+    if changes:
+        print()
         _print_changes(changes[:30])
         if len(changes) > 30:
             print(term.dim("  … and %d more" % (len(changes) - 30)))
+    n = len(changes)
+    verb = "differs" if n == 1 else "differ"
+    print()
+    print(term.yellow("%s %s." % (_count(n, "file"), verb)) if n else term.green("Files match the last snapshot."))
     return 0
+
+
+def _count(n, word):
+    """``1 snapshot`` / ``2 snapshots``. ``word`` is the singular."""
+    return "%d %s%s" % (n, word, "" if n == 1 else "s")
 
 
 def cmd_config(args):

@@ -10,6 +10,12 @@ All notable changes to this project are documented here. The format follows [Kee
 - GitHub Actions workflow `.github/workflows/publish.yml` publishes `rewind-cli` to PyPI with trusted publishing when a `v*` tag is pushed. It does nothing until that tag exists and the PyPI project trusts this repository.
 
 ### Changed
+- The app Timeline is drawn in the page (no embedded frame): a file list with added and removed line counts beside a larger diff, and the same keyboard shortcuts from the app shell, including `?`.
+- Undo and Go back show the file list open, with counts, and still say Rewind saves the current files first.
+- Home has one status line: protected or paused, and the last blocked command once. That command is not repeated under Recent activity.
+- Below 860px a menu opens the sidebar, so every page stays reachable. The timeline stacks snapshots, then files, then the diff.
+- `rewind status` says "1 snapshot" or "2 snapshots" (and the same for sessions) and ends with one coloured line: files match the last snapshot, or N files differ. `NO_COLOR` still strips the colour.
+- The ghost colour meets WCAG AA for text (4.5:1) on the surfaces it is drawn on.
 - New projects keep their store in `~/.rewind/projects/<hash>`. `rewind init --local` (and the app's "Inside the folder" option) opts into `.rewind/` in the project. An existing in-project store is kept, not migrated. `rewind init` prints that `.env` snapshots are plaintext local copies.
 - A store lock is taken from a dead pid only. A live process keeps the lock no matter how old the lock file is.
 - `rewind app` no longer asks DNS for the name of `127.0.0.1` (that lookup could hang on macOS before the server wrote `app.json`). If the app still fails to start, the error includes the tail of `app.log`, and CI prints that file on failure.
